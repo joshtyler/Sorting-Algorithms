@@ -90,8 +90,10 @@ typedef struct runtimeStats runtimeStats;
 
 hashTable createTable(unsigned int size);
 void freeTable(hashTable table);
+
 listElement * intsFromFile(char* fileName);
 unsigned int intsFromFile(char* fileName, listElement** head);
+
 void printList(listElement* current, FILE *stream);
 runtimeStats hashList(hashTable tableHeader, listElement *currentListElement, hashProcess operation);
 unsigned int hashProcessNumber(hashTable tableHeader, int numToProc, hashProcess operation);
