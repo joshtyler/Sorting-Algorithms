@@ -6,13 +6,15 @@
 #include <assert.h>
 #include <time.h>
 
-#define DATA_FILENAME	"input_2000.txt"
-#define SEARCH_FILENAME	"find_2000.txt"
-#define HASH_TABLE_SIZE	4000
+#define DATA_FILENAME	"input.txt"
+#define SEARCH_FILENAME	"find.txt"
+#define HASH_TABLE_SIZE	20
 
 #define NO_SPACERS 50
 
-#define DEBUG_LEVEL 0 // 0 is off, 1 is collision and retrieval messages only, 2 is all debugging messsages
+#define NO_REPS_FOR_SIZE_1 100000
+
+#define DEBUG_LEVEL 2 // 0 is off, 1 is collision and retrieval messages only, 2 is all debugging messsages
 #define MAX_TO_PRINT 20
 
 #define LEVEL_2_SMALL  HASH_TABLE_SIZE <= MAX_TO_PRINT && !defined(NDEBUG) && DEBUG_LEVEL == 2
@@ -24,24 +26,24 @@
 #if LEVEL_2
 #define dbgLevel1Err(message, ...) debug(stderr,message,##__VA_ARGS__)
 #define dbgLevel1Msg(message, ...) debug(stdout,message,##__VA_ARGS__)
-#define dbgLevel1ListMsg(list, value, location, event ) messageToDebugList(list, value, location, event)
+#define dbgLevel1ListMsg(list, value, location, event, lastRep) messageToDebugList(list, value, location, event, lastRep)
 #define dbgLevel2Err(message, ...) debug(stderr,message,##__VA_ARGS__)
 #define dbgLevel2Msg(message, ...) debug(stdout,message,##__VA_ARGS__)
-#define dbgLevel2ListMsg(list, value, location, event ) messageToDebugList(list, value, location, event)
+#define dbgLevel2ListMsg(list, value, location, event, lastRep) messageToDebugList(list, value, location, event, lastRep)
 #elif LEVEL_1
 #define dbgLevel1Err(message, ...) debug(stderr,message,##__VA_ARGS__)
 #define dbgLevel1Msg(message, ...) debug(stdout,message,##__VA_ARGS__)
-#define dbgLevel1ListMsg(list, value, location, event ) messageToDebugList(list, value, location, event)
+#define dbgLevel1ListMsg(list, value, location, event, lastRep) messageToDebugList(list, value, location, event, lastRep)
 #define dbgLevel2Err(message, ...)
 #define dbgLevel2Msg(message, ...)
-#define dbgLevel2ListMsg(list, value, location, event )
+#define dbgLevel2ListMsg(list, value, location, event, lastRep)
 #else
 #define dbgLevel1Err(message, ...)
 #define dbgLevel1Msg(message, ...)
-#define dbgLevel1ListMsg(list, value, location, event )
+#define dbgLevel1ListMsg(list, value, location, event, lastRep)
 #define dbgLevel2Err(message, ...)
 #define dbgLevel2Msg(message, ...)
-#define dbgLevel2ListMsg(list, value, location, event )
+#define dbgLevel2ListMsg(list, value, location, event, lastRep)
 #endif
 
 #define checkPtr(pointer) if(pointer == NULL) { \
@@ -128,8 +130,8 @@ dataListElement * intsFromFile(char* fileName);
 unsigned int intsFromFile(char* fileName, dataListElement** head);
 
 void printList(dataListElement* current, FILE *stream);
-runtimeStats hashList(hashTable tableHeader, dataListElement *currentdataListElement, hashProcess operation, debugList *debugMessages);
-unsigned int hashProcessNumber(hashTable tableHeader, int numToProc, hashProcess operation, debugList *debugMessages);
+runtimeStats hashList(hashTable tableHeader, dataListElement *currentdataListElement, hashProcess operation, unsigned int noReps, debugList *debugMessages);
+unsigned int hashProcessNumber(hashTable tableHeader, int numToProc, hashProcess operation, unsigned int noReps, debugList *debugMessages);
 unsigned int divHash(int num, unsigned int size);
 void printTable(hashTable table, FILE *stream);
 void freeDataList(dataListElement *currentElement);
@@ -140,8 +142,10 @@ void printBody(FILE *stream, debugList saveList, debugList searchList);
 void printSpacers(FILE *stream, char character, unsigned int number);
 void hashPrintFooter(FILE *stream, double storeTime, double searchTime, double percentFull);
 
-void messageToDebugList(debugList *list, int value, unsigned int location, debugEvent event);
+void messageToDebugList(debugList *list, int value, unsigned int location, debugEvent event, unsigned int lastRep);
 void printDebugList(debugList list, unsigned int indentLevel, FILE *stream);
+
+unsigned int setNoReps(unsigned int noForSize1, unsigned int dataSize);
 
 int main(void)
 {
@@ -170,7 +174,8 @@ int main(void)
 
 	runtimeStats storeStats;
 	debugList saveMessages = {NULL, NULL};
-	storeStats = hashList(table, storeHead, save, &saveMessages);
+
+	storeStats = hashList(table, storeHead, save, setNoReps(NO_REPS_FOR_SIZE_1, noToStore), &saveMessages);
 	dbgLevel2Msg("Tried to store: %d items.\nStored: %d items.\nDuration %lf seconds.\n", storeStats.attempted,storeStats.processed, storeStats.duration );
 	freeDataList(storeHead);
 
@@ -193,7 +198,7 @@ int main(void)
 
 	runtimeStats searchStats;
 	debugList searchMessages = {NULL, NULL};
-	searchStats = hashList(table, searchHead, search, &searchMessages);
+	searchStats = hashList(table, searchHead, search, setNoReps(NO_REPS_FOR_SIZE_1, noToSearch), &searchMessages);
 	dbgLevel2Msg("Searched: %d items.\nFound: %d items.\nDuration %lf seconds.\n", searchStats.attempted,searchStats.processed, searchStats.duration );
 	freeDataList(searchHead);
 
@@ -325,28 +330,35 @@ void printList(dataListElement* current, FILE *stream)
 	Revision history:	1.0 - Initially created on 11/04/2014 by Joshua Tyler
 						2.0 - Updated on 11/04/2014 by Joshua Tyler to support searching as well as storing
 						3.0 - Updated on 11/04/2014 by Joshua Tyler to return information about how the data was processed
+						4.0 - Updated on 14/04/2014 by Joshua Tyler to repeat the adding to list process a set no. of times (for timing)
 */
-runtimeStats hashList(hashTable tableHeader, dataListElement *currentdataListElement, hashProcess operation, debugList *debugMessages)
+runtimeStats hashList(hashTable tableHeader, dataListElement *currentdataListElement, hashProcess operation, unsigned int noReps, debugList *debugMessages)
 {
 	assert(tableHeader.array != NULL);
 	assert(tableHeader.size > 0);
 
 	runtimeStats returnStats = {0,0,0};
 	time_t start, end;
+
+	unsigned int repCtr;
 	
 	start = clock();
 	while(currentdataListElement != NULL)
 	{
 		returnStats.attempted++;
-		if( hashProcessNumber(tableHeader, currentdataListElement->data, operation, debugMessages) == 1) // If found or stored
+		for(repCtr = noReps; repCtr > 0; repCtr--)
 		{
-			returnStats.processed++;
+			if( hashProcessNumber(tableHeader, currentdataListElement->data, operation, repCtr == 1, debugMessages) == 1) // If found or stored
+			{
+				if(repCtr == 1)
+					returnStats.processed++;
+			}
 		}
 		currentdataListElement = currentdataListElement ->next;
 	}
 	end = clock();
 
-	returnStats.duration = (double)(end-start)/(double)CLOCKS_PER_SEC;
+	returnStats.duration = ( (double)(end-start)/(double)CLOCKS_PER_SEC )/(double)noReps;
 
 	return returnStats;
 
@@ -366,9 +378,10 @@ runtimeStats hashList(hashTable tableHeader, dataListElement *currentdataListEle
 						2.0 - Modified the purpose of the function so it could both store and find a number
 						3.0 - Modified to output debugging messages if debug is enabled
 						4.0 - 14/04/14 Modified to save debug messages to a linked list so they can be run later.
-						5.0 - 14/04/14 Modified to use linear probing in accordance with the new specifications
+						5.0 - 14/04/14 Modified to use linear probing (rather than quadratic) in accordance with the new specifications
+						6.0 - 14/04/14 Modified to allow multiple repitions
 */
-unsigned int hashProcessNumber(hashTable tableHeader, int numToProc, hashProcess operation, debugList *debugMessages)
+unsigned int hashProcessNumber(hashTable tableHeader, int numToProc, hashProcess operation, unsigned int lastRep, debugList *debugMessages)
 {
 	assert(tableHeader.array != NULL);
 	assert(tableHeader.size > 0);
@@ -381,20 +394,20 @@ unsigned int hashProcessNumber(hashTable tableHeader, int numToProc, hashProcess
 
 	while(1)
 	{
-//		printf("Number: %d, Index: %d\n", numToProc, index);
 		assert(index < tableHeader.size);
 		switch(operation)
 		{
 			case save:
 				if(tableHeader.array[index].status == occupied)
 				{
-					dbgLevel1ListMsg(debugMessages, numToProc, index, collision);
-//					dbgLevel1Msg("\tCollision occured storing value %d at hash table location %d.", numToProc, index);
+					dbgLevel1ListMsg(debugMessages, numToProc, index, collision, lastRep);
 				} else {
-					tableHeader.array[index].data = numToProc;
-					tableHeader.array[index].status = occupied;
-//					dbgLevel2Msg("\tData with value %d stored successfully at hash table location %d.", numToProc, index);
-					dbgLevel2ListMsg(debugMessages, numToProc, index, saved);
+					if(lastRep)
+					{
+						tableHeader.array[index].data = numToProc;
+						tableHeader.array[index].status = occupied;
+					}
+					dbgLevel2ListMsg(debugMessages, numToProc, index, saved, lastRep);
 					return 1;
 				}
 				break;
@@ -403,8 +416,7 @@ unsigned int hashProcessNumber(hashTable tableHeader, int numToProc, hashProcess
 				if(tableHeader.array[index].status == occupied) 
 					if(tableHeader.array[index].data == numToProc)
 					{
-//						dbgLevel1Msg("\tData value %d found at hash table location %d.", numToProc, index);
-						dbgLevel1ListMsg(debugMessages, numToProc, index, found);
+						dbgLevel1ListMsg(debugMessages, numToProc, index, found, lastRep);
 						return 1;
 					}
 				break;
@@ -418,13 +430,11 @@ unsigned int hashProcessNumber(hashTable tableHeader, int numToProc, hashProcess
 		{
 			if(operation == save)
 			{
-//				dbgLevel2Msg("\tData value %d not stored in hash table. Hash table is full", numToProc);
-				dbgLevel2ListMsg(debugMessages, numToProc, index, tableFull);
+				dbgLevel2ListMsg(debugMessages, numToProc, index, tableFull, lastRep);
 			}
 			else
 			{
-//				dbgLevel1Msg("\tData value %d not found in hash table.", numToProc);
-				dbgLevel1ListMsg(debugMessages, numToProc, index, notFound);
+				dbgLevel1ListMsg(debugMessages, numToProc, index, notFound, lastRep);
 			}
 			return 0;
 		}
@@ -615,9 +625,14 @@ void printSpacers(FILE *stream, char character, unsigned int number)
 	Function calls:		None
 	Asserts:			None
 	Revision history:	1.0 - Initially created on 14/04/2014 by Joshua Tyler
+						2.0 - updated on 14/04/14 to suppport repeating
 */
-void messageToDebugList(debugList *list, int value, unsigned int location, debugEvent event)
+void messageToDebugList(debugList *list, int value, unsigned int location, debugEvent event, unsigned int lastRep)
 {
+	if(!lastRep)	// If this is not the last repitition, return to avoid repeat messages
+		return;
+
+
 	debugListElement *elementToAdd;
 
 	elementToAdd = (debugListElement *)malloc(sizeof(debugListElement));
@@ -750,6 +765,16 @@ void hashPrintFooter(FILE *stream, double storeTime, double searchTime, double p
 
 	fprintf(stream,"Hash table %2.0lf%% full.\n", percentFull);
 
+}
+
+unsigned int setNoReps(unsigned int noForSize1, unsigned int dataSize)
+{
+	unsigned int noReps = noForSize1 / dataSize;
+
+	if(noReps == 0)
+		noReps = 1;
+
+	return noReps;
 }
 
 /*
