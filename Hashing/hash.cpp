@@ -6,14 +6,14 @@
 #include <assert.h>
 #include <time.h>
 
-#define DATA_FILENAME	"input.txt"
-#define SEARCH_FILENAME	"find.txt"
-#define HASH_TABLE_SIZE	100
+#define DATA_FILENAME	"input_2000.txt"
+#define SEARCH_FILENAME	"find_2000.txt"
+#define HASH_TABLE_SIZE	4000
 
 #define NO_SPACERS 50
 
-#define DEBUG_LEVEL 1 // 0 is off, 1 is collision and retrieval messages only, 2 is all debugging messsages
-#define MAX_TO_PRINT 10
+#define DEBUG_LEVEL 0 // 0 is off, 1 is collision and retrieval messages only, 2 is all debugging messsages
+#define MAX_TO_PRINT 20
 
 #define LEVEL_2_SMALL  HASH_TABLE_SIZE <= MAX_TO_PRINT && !defined(NDEBUG) && DEBUG_LEVEL == 2
 #define LEVEL_2  !defined(NDEBUG) && DEBUG_LEVEL == 2
@@ -41,12 +41,12 @@
 #define dbgLevel1ListMsg(list, value, location, event )
 #define dbgLevel2Err(message, ...)
 #define dbgLevel2Msg(message, ...)
-#define dbgLevel2ListMsg(list, value, location, event 
+#define dbgLevel2ListMsg(list, value, location, event )
 #endif
 
 #define checkPtr(pointer) if(pointer == NULL) { \
-												fprintf(stderr,"NULL Pointer errror on line %d\n                                     \
-												                 Suspected memory allocation error or file opening error",__LINE__); \
+												fprintf(stderr,"NULL Pointer errror on line %d\n"                                        \
+												                 "Suspected memory allocation error or file opening error.\n",__LINE__); \
 												exit(EXIT_FAILURE); }
 
 enum hashEntryStatus
@@ -132,18 +132,20 @@ runtimeStats hashList(hashTable tableHeader, dataListElement *currentdataListEle
 unsigned int hashProcessNumber(hashTable tableHeader, int numToProc, hashProcess operation, debugList *debugMessages);
 unsigned int divHash(int num, unsigned int size);
 void printTable(hashTable table, FILE *stream);
-void freeList(dataListElement *);
+void freeDataList(dataListElement *currentElement);
+void freeDebugList(debugList *list);
 
 void printHeader(FILE *stream, char *method, char *dataFilename, char *searchFilename, unsigned int stored, unsigned int searched, unsigned int found);
 void printBody(FILE *stream, debugList saveList, debugList searchList);
 void printSpacers(FILE *stream, char character, unsigned int number);
+void hashPrintFooter(FILE *stream, double storeTime, double searchTime, double percentFull);
 
 void messageToDebugList(debugList *list, int value, unsigned int location, debugEvent event);
 void printDebugList(debugList list, unsigned int indentLevel, FILE *stream);
 
 int main(void)
 {
-
+	/* Allocate memory for table */
 	hashTable table;
 	table = createTable(HASH_TABLE_SIZE);
 	table.hashFunction = &divHash;
@@ -151,49 +153,61 @@ int main(void)
 	#if LEVEL_2_SMALL
 	puts("Empty table:");
 	printTable(table, stdout);
+	putchar('\n');
 	#endif
 
-	unsigned int noToStore, noToSearch;
-
+	unsigned int noToStore;
+	/* Load the data to be stored in the table */
 	dataListElement *storeHead;
 	noToStore = intsFromFile(DATA_FILENAME, &storeHead);
+	dbgLevel2Msg("Loaded %d items to store.\n", noToStore);
 
 	#if LEVEL_2_SMALL
 	puts("Input:");
 	printList(storeHead, stdout);
-	#endif
-
-	dataListElement *searchHead;
-	noToSearch = intsFromFile(SEARCH_FILENAME, &searchHead);
-
-	#if LEVEL_2_SMALL
-	puts("To Search:");
-	printList(searchHead, stdout);
+	putchar('\n');
 	#endif
 
 	runtimeStats storeStats;
 	debugList saveMessages = {NULL, NULL};
 	storeStats = hashList(table, storeHead, save, &saveMessages);
 	dbgLevel2Msg("Tried to store: %d items.\nStored: %d items.\nDuration %lf seconds.\n", storeStats.attempted,storeStats.processed, storeStats.duration );
+	freeDataList(storeHead);
 
 	#if LEVEL_2_SMALL
 	puts("Populated table:");
 	printTable(table, stdout);
+	putchar('\n');
+	#endif
+
+	unsigned int noToSearch;
+	dataListElement *searchHead;
+	noToSearch = intsFromFile(SEARCH_FILENAME, &searchHead);
+	dbgLevel2Msg("Loaded %d items to search.\n", noToSearch);
+
+	#if LEVEL_2_SMALL
+	puts("To Search:");
+	printList(searchHead, stdout);
+	putchar('\n');
 	#endif
 
 	runtimeStats searchStats;
 	debugList searchMessages = {NULL, NULL};
 	searchStats = hashList(table, searchHead, search, &searchMessages);
 	dbgLevel2Msg("Searched: %d items.\nFound: %d items.\nDuration %lf seconds.\n", searchStats.attempted,searchStats.processed, searchStats.duration );
+	freeDataList(searchHead);
 
 	printHeader(stdout, "Hashing", DATA_FILENAME, SEARCH_FILENAME, storeStats.processed, searchStats.attempted, searchStats.processed);
 
 	printBody(stdout, saveMessages, searchMessages);
 
+	freeDebugList(&saveMessages);
+	freeDebugList(&searchMessages);
+
+	hashPrintFooter(stdout, storeStats.duration, searchStats.duration, 100.00*((double)storeStats.processed/(double)HASH_TABLE_SIZE));
+
 
 	freeTable(table);
-	freeList(storeHead);
-	freeList(searchHead);
 
 	return EXIT_SUCCESS;
 }
@@ -480,23 +494,51 @@ void printTable(hashTable table, FILE *stream)
 }
 
 /*
-	Purpose:			Free the memory used by a linked list
+	Purpose:			Free the memory used by a data linked list
 	Parameters:			currentElement - A pointer to the first element to be removed
 	Return value:		None
 	Function calls:		None
 	Asserts:			None
 	Revision history:	1.0 - Initially created on 11/04/2014 by Joshua Tyler
 */
-void freeList(dataListElement *currentElement)
+void freeDataList(dataListElement *currentElement)
 {
-	dataListElement *prevElement = currentElement;
 
-	do
+	dataListElement *temp;
+
+	while(currentElement !=NULL)
 	{
-		currentElement = prevElement->next;
-		free(prevElement);
-		prevElement = currentElement;
-	}while(currentElement != NULL);
+		temp = currentElement->next;
+		free(currentElement);
+		currentElement = temp;
+	}
+
+
+}
+
+/*
+	Purpose:			Free the memory used by a debug linked list
+	Parameters:			currentElement - A pointer to the first element to be removed
+	Return value:		None
+	Function calls:		None
+	Asserts:			None
+	Revision history:	1.0 - Initially created on 14/04/2014 by Joshua Tyler
+*/;
+void freeDebugList(debugList *list)
+{
+
+	debugListElement *nodeToFree = list->first;
+
+	debugListElement *temp;
+
+	while(nodeToFree != NULL)
+	{
+		temp = nodeToFree->next;
+		free(nodeToFree);
+		nodeToFree = temp;
+	}
+
+	list->first = list->last = NULL;
 
 }
 
@@ -598,6 +640,17 @@ void messageToDebugList(debugList *list, int value, unsigned int location, debug
 
 }
 
+
+/*
+	Purpose:			Prints the messages stored in a debugList
+	Parameters:			list - the debugList to print
+						indentLevel - the number of tabs to print before each message
+						stream - the output stream to print to
+	Return value:		None
+	Function calls:		None
+	Asserts:			None
+	Revision history:	1.0 - Initially created on 14/04/2014 by Joshua Tyler
+*/
 void printDebugList(debugList list, unsigned int indentLevel, FILE *stream)
 {
 	assert(stream != NULL);
@@ -676,6 +729,28 @@ void printBody(FILE *stream, debugList saveList, debugList searchList)
 	fputc('\n',stream);
 }
 
+/*
+	Purpose:			Print the results footer for the hash table
+	Parameters:			storeTime and searchTime- the time in seconds taken to store and search the data
+						percentFull - the percentage of the hash table that's filled.
+						saveList and searchList - the lists containing the messages from saving and searching
+	Return value:		None
+	Function calls:		None
+	Asserts:			stream cannot be NULL
+	Revision history:	1.0 - Initially created on 14/04/2014 by Joshua Tyler
+*/
+void hashPrintFooter(FILE *stream, double storeTime, double searchTime, double percentFull)
+{
+	fputs("Execution times:\n\n", stream);
+
+	fprintf(stream,"\tTime taken to store data: %lf s\n", storeTime);
+	fprintf(stream,"\tTime taken to retreive data: %lf s\n", searchTime);
+
+	fputc('\n',stream);
+
+	fprintf(stream,"Hash table %2.0lf%% full.\n", percentFull);
+
+}
 
 /*
 	Purpose:			
