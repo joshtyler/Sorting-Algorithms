@@ -147,6 +147,8 @@ void printDebugList(debugList list, unsigned int indentLevel, FILE *stream);
 
 unsigned int setNoReps(unsigned int noForSize1, unsigned int dataSize);
 
+void appendToFile(unsigned int noStored, unsigned int noSearched, unsigned int noFound, double timeToStore, double timeToSearch);
+
 int main(void)
 {
 	/* Allocate memory for table */
@@ -210,6 +212,8 @@ int main(void)
 	freeDebugList(&searchMessages);
 
 	hashPrintFooter(stdout, storeStats.duration, searchStats.duration, 100.00*((double)storeStats.processed/(double)HASH_TABLE_SIZE));
+
+	appendToFile(storeStats.processed, searchStats.attempted, searchStats.processed, storeStats.duration, searchStats.duration);
 
 
 	freeTable(table);
@@ -767,6 +771,15 @@ void hashPrintFooter(FILE *stream, double storeTime, double searchTime, double p
 
 }
 
+/*
+	Purpose:			Return the number of repeats that should be performed to get reasonable results
+	Parameters:			noForSize1 - The number of repeats which would be performed for a dataset of size 1
+						dataSize -  The size of the dataset
+	Return value:		The number of repeats which should be performed
+	Function calls:		None
+	Asserts:			None
+	Revision history:	1.0 - Initially created on 14/04/2014 by Joshua Tyler
+*/
 unsigned int setNoReps(unsigned int noForSize1, unsigned int dataSize)
 {
 	unsigned int noReps = noForSize1 / dataSize;
@@ -776,6 +789,27 @@ unsigned int setNoReps(unsigned int noForSize1, unsigned int dataSize)
 
 	return noReps;
 }
+
+/*
+	Purpose:			Write statistics to an output text file in CSV format
+	Parameters:			None
+	Return value:		None
+	Function calls:		None
+	Asserts:			None
+	Revision history:	1.0 - Initially created on 14/04/2014 by Joshua Tyler
+*/
+void appendToFile(unsigned int noStored, unsigned int noSearched, unsigned int noFound, double timeToStore, double timeToSearch)
+{
+	FILE *outputFile;
+
+	outputFile = fopen("outputStats.txt","a");
+	checkPtr(outputFile);
+
+	fprintf(outputFile,"%d,%d,%d,%lf,%lf\n", noStored, noSearched, noFound, timeToStore, timeToSearch);
+
+	fclose(outputFile);
+}
+
 
 /*
 	Purpose:			
