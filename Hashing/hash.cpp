@@ -24,18 +24,24 @@
 #if LEVEL_2
 #define dbgLevel1Err(message, ...) debug(stderr,message,##__VA_ARGS__)
 #define dbgLevel1Msg(message, ...) debug(stdout,message,##__VA_ARGS__)
+#define dbgLevel1ListMsg(list, value, location, event ) messageToDebugList(list, value, location, event)
 #define dbgLevel2Err(message, ...) debug(stderr,message,##__VA_ARGS__)
 #define dbgLevel2Msg(message, ...) debug(stdout,message,##__VA_ARGS__)
+#define dbgLevel2ListMsg(list, value, location, event ) messageToDebugList(list, value, location, event)
 #elif LEVEL_1
 #define dbgLevel1Err(message, ...) debug(stderr,message,##__VA_ARGS__)
 #define dbgLevel1Msg(message, ...) debug(stdout,message,##__VA_ARGS__)
+#define dbgLevel1ListMsg(list, value, location, event ) messageToDebugList(list, value, location, event)
 #define dbgLevel2Err(message, ...)
 #define dbgLevel2Msg(message, ...)
+#define dbgLevel2ListMsg(list, value, location, event )
 #else
 #define dbgLevel1Err(message, ...)
 #define dbgLevel1Msg(message, ...)
+#define dbgLevel1ListMsg(list, value, location, event )
 #define dbgLevel2Err(message, ...)
 #define dbgLevel2Msg(message, ...)
+#define dbgLevel2ListMsg(list, value, location, event 
 #endif
 
 #define checkPtr(pointer) if(pointer == NULL) { \
@@ -66,12 +72,39 @@ struct hashTable
 };
 typedef struct hashTable hashTable;
 
-struct listElement
+struct dataListElement
 {
 	int data;
-	struct listElement *next;
+	struct dataListElement *next;
 };
-typedef struct listElement listElement;
+typedef struct dataListElement dataListElement;
+
+enum debugEvent
+{
+	found,
+	notFound,
+	collision,
+	saved,
+	tableFull
+};
+typedef enum debugEvent debugEvent;
+
+struct debugListElement
+{
+	int value;
+	unsigned int location;
+	debugEvent event;
+	struct debugListElement *next;
+};
+typedef struct dataListElement dataListElement;
+
+struct debugList
+{
+	debugListElement *first;
+	debugListElement *last;
+};
+typedef struct debugList debugList;
+
 
 enum hashProcess
 {
@@ -91,17 +124,22 @@ typedef struct runtimeStats runtimeStats;
 hashTable createTable(unsigned int size);
 void freeTable(hashTable table);
 
-listElement * intsFromFile(char* fileName);
-unsigned int intsFromFile(char* fileName, listElement** head);
+dataListElement * intsFromFile(char* fileName);
+unsigned int intsFromFile(char* fileName, dataListElement** head);
 
-void printList(listElement* current, FILE *stream);
-runtimeStats hashList(hashTable tableHeader, listElement *currentListElement, hashProcess operation);
-unsigned int hashProcessNumber(hashTable tableHeader, int numToProc, hashProcess operation);
+void printList(dataListElement* current, FILE *stream);
+runtimeStats hashList(hashTable tableHeader, dataListElement *currentdataListElement, hashProcess operation, debugList *debugMessages);
+unsigned int hashProcessNumber(hashTable tableHeader, int numToProc, hashProcess operation, debugList *debugMessages);
 unsigned int divHash(int num, unsigned int size);
 void printTable(hashTable table, FILE *stream);
-void freeList(listElement *);
-void printHeader(FILE *stream, char *method, char *dataFilename, char *searchFilename, unsigned int noToStore, unsigned int noToSearch);
+void freeList(dataListElement *);
+
+void printHeader(FILE *stream, char *method, char *dataFilename, char *searchFilename, unsigned int stored, unsigned int searched, unsigned int found);
+void printBody(FILE *stream, debugList saveList, debugList searchList);
 void printSpacers(FILE *stream, char character, unsigned int number);
+
+void messageToDebugList(debugList *list, int value, unsigned int location, debugEvent event);
+void printDebugList(debugList list, unsigned int indentLevel, FILE *stream);
 
 int main(void)
 {
@@ -117,7 +155,7 @@ int main(void)
 
 	unsigned int noToStore, noToSearch;
 
-	listElement *storeHead;
+	dataListElement *storeHead;
 	noToStore = intsFromFile(DATA_FILENAME, &storeHead);
 
 	#if LEVEL_2_SMALL
@@ -125,7 +163,7 @@ int main(void)
 	printList(storeHead, stdout);
 	#endif
 
-	listElement *searchHead;
+	dataListElement *searchHead;
 	noToSearch = intsFromFile(SEARCH_FILENAME, &searchHead);
 
 	#if LEVEL_2_SMALL
@@ -133,12 +171,9 @@ int main(void)
 	printList(searchHead, stdout);
 	#endif
 
-	printHeader(stdout, "Hashing", DATA_FILENAME, SEARCH_FILENAME, noToStore, noToSearch);
-
-	dbgLevel1Msg("Debug Output:\n\n\tStorage details:");
-
 	runtimeStats storeStats;
-	storeStats = hashList(table, storeHead, save);
+	debugList saveMessages = {NULL, NULL};
+	storeStats = hashList(table, storeHead, save, &saveMessages);
 	dbgLevel2Msg("Tried to store: %d items.\nStored: %d items.\nDuration %lf seconds.\n", storeStats.attempted,storeStats.processed, storeStats.duration );
 
 	#if LEVEL_2_SMALL
@@ -146,13 +181,14 @@ int main(void)
 	printTable(table, stdout);
 	#endif
 
-	dbgLevel1Msg("\n\tRetrieval details:");
-
 	runtimeStats searchStats;
-	searchStats = hashList(table, searchHead, search);
+	debugList searchMessages = {NULL, NULL};
+	searchStats = hashList(table, searchHead, search, &searchMessages);
 	dbgLevel2Msg("Searched: %d items.\nFound: %d items.\nDuration %lf seconds.\n", searchStats.attempted,searchStats.processed, searchStats.duration );
 
-	printSpacers(stdout, '-', NO_SPACERS);
+	printHeader(stdout, "Hashing", DATA_FILENAME, SEARCH_FILENAME, storeStats.processed, searchStats.attempted, searchStats.processed);
+
+	printBody(stdout, saveMessages, searchMessages);
 
 
 	freeTable(table);
@@ -206,7 +242,7 @@ void freeTable(hashTable table)
 	Asserts:			fileName cannot point to nothing
 	Revision history:	1.0 - Initially created on 11/04/2014 by Joshua Tyler
 */
-unsigned int intsFromFile(char* fileName, listElement** head)
+unsigned int intsFromFile(char* fileName, dataListElement** head)
 {
 	assert(fileName != NULL);
 
@@ -215,13 +251,13 @@ unsigned int intsFromFile(char* fileName, listElement** head)
 
 	unsigned int count = 0;
 	int currentNum;
-	listElement *currentItem = NULL;
-	listElement *temp;
+	dataListElement *currentItem = NULL;
+	dataListElement *temp;
 	*head = NULL;
 	while( fscanf(inputFile,"%d", &currentNum) == 1)
 	{
 		count++;
-		temp = (listElement *) malloc(sizeof(listElement));
+		temp = (dataListElement *) malloc(sizeof(dataListElement));
 		checkPtr(temp);
 
 		if(currentItem == NULL)
@@ -249,7 +285,7 @@ unsigned int intsFromFile(char* fileName, listElement** head)
 	Asserts:			stream cannot be NULL
 	Revision history:	1.0 - Initially created on 11/04/2014 by Joshua Tyler
 */
-void printList(listElement* current, FILE *stream)
+void printList(dataListElement* current, FILE *stream)
 {
 	assert(stream != NULL);
 	
@@ -267,7 +303,7 @@ void printList(listElement* current, FILE *stream)
 /*
 	Purpose:			Process the data in a linked list with repect to the hash table
 	Parameters:			tableHeader - the header of the hash table to enter the data into.
-						currentListElement - the first element of the linked list to get the data from.
+						currentdataListElement - the first element of the linked list to get the data from.
 	Return value:		A runtimeStatistics structure containing information about how the data was processed
 	Function calls:		None
 	Asserts:			tableHeader.array cannot be NULL.
@@ -276,7 +312,7 @@ void printList(listElement* current, FILE *stream)
 						2.0 - Updated on 11/04/2014 by Joshua Tyler to support searching as well as storing
 						3.0 - Updated on 11/04/2014 by Joshua Tyler to return information about how the data was processed
 */
-runtimeStats hashList(hashTable tableHeader, listElement *currentListElement, hashProcess operation)
+runtimeStats hashList(hashTable tableHeader, dataListElement *currentdataListElement, hashProcess operation, debugList *debugMessages)
 {
 	assert(tableHeader.array != NULL);
 	assert(tableHeader.size > 0);
@@ -285,14 +321,14 @@ runtimeStats hashList(hashTable tableHeader, listElement *currentListElement, ha
 	time_t start, end;
 	
 	start = clock();
-	while(currentListElement != NULL)
+	while(currentdataListElement != NULL)
 	{
 		returnStats.attempted++;
-		if( hashProcessNumber(tableHeader, currentListElement->data, operation) == 1) // If found or stored
+		if( hashProcessNumber(tableHeader, currentdataListElement->data, operation, debugMessages) == 1) // If found or stored
 		{
 			returnStats.processed++;
 		}
-		currentListElement = currentListElement ->next;
+		currentdataListElement = currentdataListElement ->next;
 	}
 	end = clock();
 
@@ -315,8 +351,10 @@ runtimeStats hashList(hashTable tableHeader, listElement *currentListElement, ha
 	Revision history:	1.0 - Initially created on 11/04/2014 by Joshua Tyler
 						2.0 - Modified the purpose of the function so it could both store and find a number
 						3.0 - Modified to output debugging messages if debug is enabled
+						4.0 - 14/04/14 Modified to save debug messages to a linked list so they can be run later.
+						5.0 - 14/04/14 Modified to use linear probing in accordance with the new specifications
 */
-unsigned int hashProcessNumber(hashTable tableHeader, int numToProc, hashProcess operation)
+unsigned int hashProcessNumber(hashTable tableHeader, int numToProc, hashProcess operation, debugList *debugMessages)
 {
 	assert(tableHeader.array != NULL);
 	assert(tableHeader.size > 0);
@@ -336,11 +374,13 @@ unsigned int hashProcessNumber(hashTable tableHeader, int numToProc, hashProcess
 			case save:
 				if(tableHeader.array[index].status == occupied)
 				{
-					dbgLevel1Msg("\tCollision occured storing value %d at hash table location %d.", numToProc, index);
+					dbgLevel1ListMsg(debugMessages, numToProc, index, collision);
+//					dbgLevel1Msg("\tCollision occured storing value %d at hash table location %d.", numToProc, index);
 				} else {
 					tableHeader.array[index].data = numToProc;
 					tableHeader.array[index].status = occupied;
-					dbgLevel2Msg("\tData with value %d stored successfully at hash table location %d.", numToProc, index);
+//					dbgLevel2Msg("\tData with value %d stored successfully at hash table location %d.", numToProc, index);
+					dbgLevel2ListMsg(debugMessages, numToProc, index, saved);
 					return 1;
 				}
 				break;
@@ -349,7 +389,8 @@ unsigned int hashProcessNumber(hashTable tableHeader, int numToProc, hashProcess
 				if(tableHeader.array[index].status == occupied) 
 					if(tableHeader.array[index].data == numToProc)
 					{
-						dbgLevel1Msg("\tData value %d found at hash table location %d.", numToProc, index);
+//						dbgLevel1Msg("\tData value %d found at hash table location %d.", numToProc, index);
+						dbgLevel1ListMsg(debugMessages, numToProc, index, found);
 						return 1;
 					}
 				break;
@@ -358,13 +399,19 @@ unsigned int hashProcessNumber(hashTable tableHeader, int numToProc, hashProcess
 				assert(1);
 		}
 
-		index = (hash + offset*offset)%tableHeader.size; // Quadratic probing
+		index = (hash + offset)%tableHeader.size; // Linear probing
 		if(offset == tableHeader.size)
 		{
 			if(operation == save)
-				dbgLevel1Msg("\tData value %d not stored in hash table. Hash table is full", numToProc);
+			{
+//				dbgLevel2Msg("\tData value %d not stored in hash table. Hash table is full", numToProc);
+				dbgLevel2ListMsg(debugMessages, numToProc, index, tableFull);
+			}
 			else
-				dbgLevel1Msg("\tData value %d not found in hash table.", numToProc);
+			{
+//				dbgLevel1Msg("\tData value %d not found in hash table.", numToProc);
+				dbgLevel1ListMsg(debugMessages, numToProc, index, notFound);
+			}
 			return 0;
 		}
 		offset++;
@@ -440,9 +487,9 @@ void printTable(hashTable table, FILE *stream)
 	Asserts:			None
 	Revision history:	1.0 - Initially created on 11/04/2014 by Joshua Tyler
 */
-void freeList(listElement *currentElement)
+void freeList(dataListElement *currentElement)
 {
-	listElement *prevElement = currentElement;
+	dataListElement *prevElement = currentElement;
 
 	do
 	{
@@ -469,30 +516,38 @@ void freeList(listElement *currentElement)
 						searchFilename cannot be NULL
 	Revision history:	1.0 - Initially created on 11/04/2014 by Joshua Tyler
 */
-void printHeader(FILE *stream, char *method, char *dataFilename, char *searchFilename, unsigned int noToStore, unsigned int noToSearch)
+void printHeader(FILE *stream, char *method, char *dataFilename, char *searchFilename, unsigned int stored, unsigned int searched, unsigned int found)
 {
 	assert(stream != NULL);
 	assert(method != NULL);
 	assert(dataFilename != NULL);
 	assert(searchFilename != NULL);
 
-	fputs("Data storage and retrieval: A comparison of hasing and directed search of sorted data.\n", stream);
+	fputs("Data storage and retrieval: A comparison of hashing and directed search of sorted data.\n", stream);
 
 	printSpacers(stream, '=', NO_SPACERS);
+	fputc('\n',stream);
 
 	fprintf(stream, "Storage method: %s\n", method);
 
 	fputc('\n',stream);
 
-	fprintf(stream, "Number of items to be stored: %d\n", noToStore);
-	fprintf(stream, "Number of items to be searched: %d\n", noToSearch);
+	fprintf(stream, "Input data loaded from file: %s\n", dataFilename);
+	fprintf(stream, "Retreival data loaded from file: %s\n", searchFilename);
+
+	fputc('\n',stream);
+
+	fprintf(stream, "Number of items stored: %d\n", stored);
+	fprintf(stream, "Number of items searched: %d\n", searched);
+	fprintf(stream, "Number of items found: %d\n", found);
 
 	printSpacers(stream, '-', NO_SPACERS);
+	fputc('\n',stream);
 	
 }
 
 /*
-	Purpose:			Prints a row of spacer characters terminated by a new line
+	Purpose:			Prints a row of spacer characters
 	Parameters:			stream - the stream to print the character to
 						character - the character to print
 						number - the number of spacers to print
@@ -500,6 +555,7 @@ void printHeader(FILE *stream, char *method, char *dataFilename, char *searchFil
 	Function calls:		None
 	Asserts:			stream cannot be NULL
 	Revision history:	1.0 - Initially created on 11/04/2014 by Joshua Tyler
+						2.0 - Removed new line termination for greater flexibility
 */
 void printSpacers(FILE *stream, char character, unsigned int number)
 {
@@ -507,6 +563,116 @@ void printSpacers(FILE *stream, char character, unsigned int number)
 	unsigned int i;
 	for(i=0; i<number;i++)
 		fputc(character,stream);
+}
+
+/*
+	Purpose:			Add a message to the debug list
+	Parameters:			list - the list header of the list to add it to
+						value, location, and event - parameters to save into the list
+	Return value:		None
+	Function calls:		None
+	Asserts:			None
+	Revision history:	1.0 - Initially created on 14/04/2014 by Joshua Tyler
+*/
+void messageToDebugList(debugList *list, int value, unsigned int location, debugEvent event)
+{
+	debugListElement *elementToAdd;
+
+	elementToAdd = (debugListElement *)malloc(sizeof(debugListElement));
+	checkPtr(elementToAdd);
+
+	elementToAdd->value = value;
+	elementToAdd->location = location;
+	elementToAdd->event = event;
+	
+	elementToAdd->next = NULL;
+
+	if(list->first == NULL)
+	{
+		list->first = elementToAdd;
+		list->last = elementToAdd;
+	} else {
+		list->last->next = elementToAdd;
+		list->last = elementToAdd;
+	}
+
+}
+
+void printDebugList(debugList list, unsigned int indentLevel, FILE *stream)
+{
+	assert(stream != NULL);
+	
+	debugListElement *current = list.first;
+
+	while(current != NULL)
+	{
+		printSpacers(stream, '\t', indentLevel);
+		switch (current->event)
+		{
+		case found:
+			fprintf(stream,"Value %d found in table at location %d.\n", current->value, current->location);
+			break;
+
+		case notFound:
+			fprintf(stream,"Value %d not found in table.\n", current->value);
+			break;
+
+		case collision:
+			fprintf(stream,"Collision occurred saving item with value %d at table location %d.\n", current->value, current->location);
+			break;
+
+		case saved:
+			fprintf(stream,"Item with value %d saved at table location %d.\n", current->value, current->location);
+			break;
+
+		case tableFull:
+			fprintf(stream,"Item with value %d not saved as table is full.\n", current->value);
+			break;
+
+		default:
+			assert(1);
+			break;
+		}
+		current = current->next;
+	}
+
+	fputc('\n',stream);
+
+	return;
+}
+
+
+/*
+	Purpose:			Print the main body of results
+	Parameters:			stream - the stream to output the results to
+						saveList and searchList - the lists containing the messages from saving and searching
+	Return value:		None
+	Function calls:		None
+	Asserts:			stream cannot be NULL
+	Revision history:	1.0 - Initially created on 14/04/2014 by Joshua Tyler
+*/
+void printBody(FILE *stream, debugList saveList, debugList searchList)
+{
+	assert(stream != NULL);
+
+	if( (saveList.first == NULL) && (searchList.first == NULL) )
+		return;
+
+	fputs("Debug Output:\n\n", stream);
+
+	if(saveList.first != NULL)
+	{
+		fputs("\tStorage details:\n\n", stream);
+		printDebugList(saveList, 1, stream);
+	}
+
+	if(searchList.first != NULL)
+	{
+		fputs("\tRetrieval details:\n\n", stream);
+		printDebugList(searchList, 1, stream);
+	}
+
+	printSpacers(stream, '-', NO_SPACERS);
 	fputc('\n',stream);
 }
 
@@ -517,5 +683,5 @@ void printSpacers(FILE *stream, char character, unsigned int number)
 	Return value:		None
 	Function calls:		None
 	Asserts:			None
-	Revision history:	1.0 - Initially created on 11/04/2014 by Joshua Tyler
+	Revision history:	1.0 - Initially created on 14/04/2014 by Joshua Tyler
 */
