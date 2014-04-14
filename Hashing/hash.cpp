@@ -43,28 +43,28 @@
 												                 Suspected memory allocation error or file opening error",__LINE__); \
 												exit(EXIT_FAILURE); }
 
-
 enum hashEntryStatus
 {
 	empty = 0,
 	occupied = 1,
 	deleted = 2
 };
+typedef enum hashEntryStatus hashEntryStatus;
 
 struct hashEntry
 {
 	int data;
-	enum hashEntryStatus status;
+	hashEntryStatus status;
 };
 typedef struct hashEntry hashEntry;
 
-struct hashHeader
+struct hashTable
 {
 	hashEntry *array;
 	unsigned int size;
 	unsigned int (*hashFunction)(int, unsigned int);
 };
-typedef struct hashHeader hashHeader;
+typedef struct hashTable hashTable;
 
 struct listElement
 {
@@ -88,15 +88,15 @@ struct runtimeStats
 };
 typedef struct runtimeStats runtimeStats;
 
-hashHeader createTable(unsigned int size);
-void freeTable(hashHeader table);
+hashTable createTable(unsigned int size);
+void freeTable(hashTable table);
 listElement * intsFromFile(char* fileName);
 unsigned int intsFromFile(char* fileName, listElement** head);
 void printList(listElement* current, FILE *stream);
-runtimeStats hashList(hashHeader tableHeader, listElement *currentListElement, hashProcess operation);
-unsigned int hashProcessNumber(hashHeader tableHeader, int numToProc, hashProcess operation);
+runtimeStats hashList(hashTable tableHeader, listElement *currentListElement, hashProcess operation);
+unsigned int hashProcessNumber(hashTable tableHeader, int numToProc, hashProcess operation);
 unsigned int divHash(int num, unsigned int size);
-void printTable(hashHeader table, FILE *stream);
+void printTable(hashTable table, FILE *stream);
 void freeList(listElement *);
 void printHeader(FILE *stream, char *method, char *dataFilename, char *searchFilename, unsigned int noToStore, unsigned int noToSearch);
 void printSpacers(FILE *stream, char character, unsigned int number);
@@ -104,7 +104,7 @@ void printSpacers(FILE *stream, char character, unsigned int number);
 int main(void)
 {
 
-	hashHeader table;
+	hashTable table;
 	table = createTable(HASH_TABLE_SIZE);
 	table.hashFunction = &divHash;
 
@@ -168,11 +168,11 @@ int main(void)
 	Asserts:			Size cannot be zero.
 	Revision history:	1.0 - Initially created on 11/04/2014 by Joshua Tyler
 */
-hashHeader createTable(unsigned int size)
+hashTable createTable(unsigned int size)
 {
 	assert(size > 0);
 
-	hashHeader table;
+	hashTable table;
 	table.array = (hashEntry *) calloc(size, sizeof(hashEntry)); // We're using calloc, so all elements will have status = 0 = empty
 
 	checkPtr(table.array);
@@ -190,7 +190,7 @@ hashHeader createTable(unsigned int size)
 	Asserts:			None
 	Revision history:	1.0 - Initially created on 11/04/2014 by Joshua Tyler
 */
-void freeTable(hashHeader table)
+void freeTable(hashTable table)
 {
 	free(table.array);
 }
@@ -274,7 +274,7 @@ void printList(listElement* current, FILE *stream)
 						2.0 - Updated on 11/04/2014 by Joshua Tyler to support searching as well as storing
 						3.0 - Updated on 11/04/2014 by Joshua Tyler to return information about how the data was processed
 */
-runtimeStats hashList(hashHeader tableHeader, listElement *currentListElement, hashProcess operation)
+runtimeStats hashList(hashTable tableHeader, listElement *currentListElement, hashProcess operation)
 {
 	assert(tableHeader.array != NULL);
 	assert(tableHeader.size > 0);
@@ -314,7 +314,7 @@ runtimeStats hashList(hashHeader tableHeader, listElement *currentListElement, h
 						2.0 - Modified the purpose of the function so it could both store and find a number
 						3.0 - Modified to output debugging messages if debug is enabled
 */
-unsigned int hashProcessNumber(hashHeader tableHeader, int numToProc, hashProcess operation)
+unsigned int hashProcessNumber(hashTable tableHeader, int numToProc, hashProcess operation)
 {
 	assert(tableHeader.array != NULL);
 	assert(tableHeader.size > 0);
@@ -400,7 +400,7 @@ unsigned int divHash(int num, unsigned int size)
 						table.array cannot be NULL
 	Revision history:	1.0 - Initially created on 11/04/2014 by Joshua Tyler
 */
-void printTable(hashHeader table, FILE *stream)
+void printTable(hashTable table, FILE *stream)
 {
 	assert(stream != NULL);
 	assert(table.array != NULL);
