@@ -1,3 +1,10 @@
+/*
+   hash.cpp
+   Impementation of storage and retreival using a hash table
+   Created as coursework for Computers and Programming II, April 2014
+   Created by Joshua Tyler (URN:6213642)
+*/
+
 /* Symbolic constants prescribed by the specification */
 #define DATA_FILENAME	"input.txt"
 #define SEARCH_FILENAME	"find.txt"
