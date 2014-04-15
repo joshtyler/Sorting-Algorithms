@@ -8,7 +8,7 @@
 /* Symbolic constants prescribed by the specification */
 #define DATA_FILENAME	"input.txt"
 #define SEARCH_FILENAME	"find.txt"
-#define HASH_TABLE_SIZE	10000
+#define HASH_TABLE_SIZE	30
 
 /* Commenting out the following line ENABLES debug mode. Debug mode should be DISABLED for optimal performance */
 //#define NDEBUG
@@ -48,7 +48,7 @@
 
 /* Some level 2 debugging commands print the full input, output and hash table.
    This defines the maximum hash table size to do this for. */
-#define MAX_TO_PRINT 20
+#define MAX_TO_PRINT 30
 
 /* Symbolic constants used to conditionally compile debugging code into the program */
 #ifndef NDEBUG
