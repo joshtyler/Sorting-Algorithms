@@ -3,6 +3,10 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2012
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Hashing", "Hashing\Hashing.vcxproj", "{265C6910-ADCE-47A3-9AE0-06AFD677798D}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Generate numbers", "Generate numbers\Generate numbers.vcxproj", "{1FF9323C-D3A8-4A96-B917-9FB2935A7C2E}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Run multiple times", "Run multiple times\Run multiple times.vcxproj", "{60592EBD-2AD9-44FE-965E-0DE16C26D369}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -13,8 +17,19 @@ Global
 		{265C6910-ADCE-47A3-9AE0-06AFD677798D}.Debug|Win32.Build.0 = Debug|Win32
 		{265C6910-ADCE-47A3-9AE0-06AFD677798D}.Release|Win32.ActiveCfg = Release|Win32
 		{265C6910-ADCE-47A3-9AE0-06AFD677798D}.Release|Win32.Build.0 = Release|Win32
+		{1FF9323C-D3A8-4A96-B917-9FB2935A7C2E}.Debug|Win32.ActiveCfg = Debug|Win32
+		{1FF9323C-D3A8-4A96-B917-9FB2935A7C2E}.Debug|Win32.Build.0 = Debug|Win32
+		{1FF9323C-D3A8-4A96-B917-9FB2935A7C2E}.Release|Win32.ActiveCfg = Release|Win32
+		{1FF9323C-D3A8-4A96-B917-9FB2935A7C2E}.Release|Win32.Build.0 = Release|Win32
+		{60592EBD-2AD9-44FE-965E-0DE16C26D369}.Debug|Win32.ActiveCfg = Debug|Win32
+		{60592EBD-2AD9-44FE-965E-0DE16C26D369}.Debug|Win32.Build.0 = Debug|Win32
+		{60592EBD-2AD9-44FE-965E-0DE16C26D369}.Release|Win32.ActiveCfg = Release|Win32
+		{60592EBD-2AD9-44FE-965E-0DE16C26D369}.Release|Win32.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(Performance) = preSolution
+		HasPerformanceSessions = true
 	EndGlobalSection
 EndGlobal
