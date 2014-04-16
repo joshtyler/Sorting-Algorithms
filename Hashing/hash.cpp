@@ -184,7 +184,7 @@ void deblPrint(debugList list, unsigned int indentLevel, FILE *stream);
 
 /* Generic printing functions (not reliant upon a custom data type) - prefix "print" */
 void printHeader(FILE *stream, char *method, char *dataFilename, char *searchFilename, unsigned int stored, unsigned int searched, unsigned int found);
-void printBody(FILE *stream, debugList saveList, debugList searchList);
+void printHtblBody(FILE *stream, debugList saveList, debugList searchList);
 void printSpacers(FILE *stream, char character, unsigned int number);
 void printHtblFooter(FILE *stream, double storeTime, double searchTime, double percentFull);
 void printAddToFile(char *fileName, unsigned int noStored, unsigned int noSearched, unsigned int noFound, double timeToStore, double timeToSearch);
@@ -260,7 +260,7 @@ int main(void)
 	/* Print the three sections of the output report */
 	printHeader(stdout, "Hashing", DATA_FILENAME, SEARCH_FILENAME, storeStats.processed, searchStats.attempted, searchStats.processed);
 
-	printBody(stdout, saveMessages, searchMessages);
+	printHtblBody(stdout, saveMessages, searchMessages);
 	deblFree(&saveMessages);
 	deblFree(&searchMessages);
 
@@ -818,7 +818,7 @@ void deblPrint(debugList list, unsigned int indentLevel, FILE *stream)
 	Asserts:			stream cannot be NULL
 	Revision history:	1.0 - 14/04/2014 created by Joshua Tyler
 */
-void printBody(FILE *stream, debugList saveList, debugList searchList)
+void printHtblBody(FILE *stream, debugList saveList, debugList searchList)
 {
 	assert(stream != NULL);
 
