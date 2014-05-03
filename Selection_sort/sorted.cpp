@@ -10,7 +10,7 @@
 #define SEARCH_FILENAME	"find.txt"
 
 /* Commenting out the following line ENABLES debug mode. Debug mode should be DISABLED for optimal performance */
-//#define NDEBUG
+#define NDEBUG
 
 /* Remove warnings about using insecure open and read functions (used carefully to maintain ANSI complience) */
 #define _CRT_SECURE_NO_WARNINGS 
@@ -21,7 +21,7 @@
 #include <time.h>
 
 /* The number of times which a store/search operation should be repeated on a data set of size 1 to ensure accurate results. */
-#define NO_REPS_FOR_SIZE_1 100000
+#define NO_REPS_FOR_SIZE_1 500000
 
 /* The number of spacer characters to print between sections of the printed report */
 #define NO_SPACERS 50
@@ -33,15 +33,15 @@
 /* Options defining whether to output the statistics to a text file */
 
 /* Comment out this line to disable outputting to a file */
-//#define OUTPUT_TO_FILE
+#define OUTPUT_TO_FILE
 
-#define OUTPUT_FILENAME "outputStats.txt"
+#define OUTPUT_FILENAME "selSortOutputStats.txt"
 
 /* Constants relating to the debug mode */
 
 /* Macros to repace debug commands with the relevant function calls if the debug conditions are met, or nothing if they're not.*/
 #ifdef NDEBUG
-#define dbgListMsg(list, value, event, lastRep))
+#define dbgListMsg(list, value, event, lastRep)
 #define dbgCtrInc(finalRep, counter)
 #else
 #define dbgListMsg(list, value, event, lastRep)		deblAddMsg(list, value, event, lastRep)
@@ -149,7 +149,7 @@ int main(void)
 	array mainArray;
 	mainArray = aryCreate(noToStore);
 
-	/* Copy the linked list input to the array 8?
+	/* Copy the linked list input to the array */
 	aryFromList(mainArray, unsortedList);
 
 	/* We're now finished with the input linked list */
@@ -168,6 +168,7 @@ int main(void)
 	runtimeStats searchStats;
 	debugList searchMessages = {NULL,NULL};
 	searchStats = aryBinSearchList(mainArray, searchList,setNoReps(NO_REPS_FOR_SIZE_1, noToSearch), &searchMessages);
+//	searchStats = aryBinSearchList(mainArray, searchList,NO_REPS_FOR_SIZE_1, &searchMessages); // Binary search is really fast, so just use the no. of reps for size 1 for all!
 
 	/* We're now finished with the search list and array */
 	datlFree(searchList);
@@ -180,9 +181,231 @@ int main(void)
 	printFooter(stdout, storeStats.duration, searchStats.duration);
 
 
+	/* Append the stats to a text file */
+	#ifdef OUTPUT_TO_FILE
+	printAddToFile(OUTPUT_FILENAME, storeStats.processed, searchStats.attempted, searchStats.processed, storeStats.duration, searchStats.duration);
+	#endif
+
 	return(EXIT_SUCCESS);
 }
 
+/* Array Functions */
+/*
+	Purpose:			Creates an array and initialises all elements to empty
+	Parameters:			size - the number of elements to have in the array
+	Return value:		The header of the array
+	Function calls:		Direct function calls - assert(), calloc().
+						Via checkPtr macro - fprintf(), exit()
+	Asserts:			Size cannot be zero.
+	Revision history:	1.0 - 15/04/2014 adapted from htblCreate() by Joshua Tyler
+*/
+array aryCreate(unsigned int size)
+{
+	assert(size > 0);
+
+	array header;
+	header.data = (int *) calloc(size, sizeof(int)); // We're using calloc, so all elements will be 0
+	checkPtr(header.data);
+
+	header.size = size;
+
+	return header;
+}
+
+/*
+	Purpose:			Frees the memory allocated to an array
+	Parameters:			header - A pointer to the array header to free
+	Return value:		None
+	Function calls:		assert(), free()
+	Asserts:			header cannot be NULL
+	Revision history:	1.0 - 15/04/2014 adapted from htblFree() by Joshua Tylerr
+*/
+void aryFree(array *header)
+{
+	assert(header != NULL);
+
+	free(header->data);
+	header->data = NULL;
+	header->size = 0;
+}
+
+/*
+	Purpose:			Perform selection sort on an array of data to sort it into ascending order
+	Parameters:			list - the array to sort
+						noReps - the number of times to repeat sorting each item (for accurate timing)
+	Return value:		A runtimeStats structure containing statistics about the sorting
+	Function calls:		None
+	Asserts:			None
+	Revision history:	1.0 - 15/04/2014 created by Joshua Tyler
+						2.6 - 16/04/2014 JT updated to add conditionally compiling swap and comparison stats.
+*/
+runtimeStats arySelSort(array list, unsigned int noReps)
+{
+	unsigned int sorted, lowest, position, repCtr;
+
+	int temp;
+
+	runtimeStats returnStats = {0.0, 0, 0, 0, 0};
+
+	time_t start, end;
+	
+	start=clock();
+	for(sorted = 0; sorted < list.size - 1; sorted++)
+	{
+		for(repCtr = noReps; repCtr > 0; repCtr--)
+		{
+			lowest = sorted;
+			for(position = lowest + 1; position < list.size; position++)
+			{
+				dbgCtrInc(repCtr == 1, returnStats.comparisons);
+
+				if(list.data[position] < list.data[lowest])
+					lowest = position;
+			}
+			if(repCtr == 1)
+				if(lowest != sorted)
+				{
+					dbgCtrInc(repCtr == 1, returnStats.swaps);
+					temp = list.data[sorted];
+					list.data[sorted] = list.data[lowest];
+					list.data[lowest] = temp;
+				}
+		}
+	}
+	end = clock();
+
+	returnStats.duration = ( (double)(end-start)/(double)CLOCKS_PER_SEC )/(double)noReps;
+
+	returnStats.attempted = returnStats.processed = list.size;
+
+	return returnStats;
+}
+
+/*
+	Purpose:			Transfer data from a linked list to an array
+	Parameters:			None
+	Return value:		None
+	Function calls:		None
+	Asserts:			None
+	Revision history:	1.0 - 15/04/2014 created by Joshua Tyler
+*/
+void aryFromList(array destination, dataListElement *source)
+{
+	unsigned int i;
+
+	dataListElement *current;
+	current = source;
+
+	for(i=0; current != NULL; i++)
+	{
+		assert(i < destination.size);
+
+		destination.data[i] = current->data;
+		current = current->next;
+	}
+}
+
+/*
+	Purpose:			Print the contents of an array
+	Parameters:			None
+	Return value:		None
+	Function calls:		None
+	Asserts:			None
+	Revision history:	1.0 - 15/04/2014 created by Joshua Tyler
+*/
+void aryPrint(array list, FILE *stream)
+{
+	unsigned int i;
+	for(i=0;i<list.size;i++)
+		fprintf(stream,"%d, ", list.data[i]);
+
+	fputc('\n',stream);
+
+}
+
+/*
+	Purpose:			Perform binary search on a data array using values from a linked list
+	Parameters:			None
+	Return value:		None
+	Function calls:		None
+	Asserts:			None
+	Revision history:	1.0 - 16/04/2014 created by Joshua Tyler
+*/
+runtimeStats aryBinSearchList(array dataArray, dataListElement *currentSearchListElement, unsigned int noReps, debugList *messages)
+{
+	assert(dataArray.data != NULL);
+	assert(dataArray.size > 0);
+	assert(messages != NULL);
+
+	runtimeStats returnStats = {0,0,0};
+	time_t start, end;
+
+	unsigned int repCtr;
+	
+	start = clock();
+	while(currentSearchListElement != NULL)
+	{
+		returnStats.attempted++;
+		for(repCtr = noReps; repCtr > 0; repCtr--)
+		{
+			if( aryBinSearchNum(dataArray, currentSearchListElement->data) == SUCCESS)
+			{
+				/* This is true if the element was found or stored successfully */
+				dbgListMsg(messages, currentSearchListElement->data, found, repCtr == 1);
+				if(repCtr == 1)
+					returnStats.processed++;
+			} else {
+				dbgListMsg(messages, currentSearchListElement->data, notFound, repCtr == 1);
+			}
+		}
+		currentSearchListElement = currentSearchListElement ->next;
+	}
+	end = clock();
+
+	returnStats.duration = ( (double)(end-start)/(double)CLOCKS_PER_SEC )/(double)noReps;
+
+	return returnStats;
+
+}
+
+/*
+	Purpose:			Perform binary search on an array with a specific value
+	Parameters:			None
+	Return value:		None
+	Function calls:		None
+	Asserts:			None
+	Revision history:	1.0 - 16/04/2014 created by Joshua Tyler
+*/
+unsigned int aryBinSearchNum(array dataArray, int searchData)
+{
+	assert(dataArray.data != NULL);
+	assert(dataArray.size > 0);
+
+	int left, right, mid;
+
+	left = 0;
+	right = dataArray.size - 1;
+
+	while(left <= right)
+	{
+		mid = (left+right)/2;
+
+		if(dataArray.data[mid] > searchData)
+		{
+			right = mid-1;
+		} else if(dataArray.data[mid] < searchData)
+		{
+			left = mid + 1;
+		} else
+		{
+			return SUCCESS;
+		}
+
+	}
+	return FAIL;
+}
+
+/* Data linked list functions */
 /*
 	Purpose:			Read the integers (stored one per line) from a text file to a data linked list structure
 	Parameters:			filename - The filename of the file to open.
@@ -254,159 +477,6 @@ void datlPrint(dataListElement* current, FILE *stream)
 	return;
 }
 
-
-/*
-	Purpose:			Creates an array and initialises all elements to empty
-	Parameters:			size - the number of elements to have in the array
-	Return value:		The header of the array
-	Function calls:		Direct function calls - assert(), calloc().
-						Via checkPtr macro - fprintf(), exit()
-	Asserts:			Size cannot be zero.
-	Revision history:	1.0 - 15/04/2014 adapted from htblCreate() by Joshua Tyler
-*/
-array aryCreate(unsigned int size)
-{
-	assert(size > 0);
-
-	array header;
-	header.data = (int *) calloc(size, sizeof(int)); // We're using calloc, so all elements will be 0
-	checkPtr(header.data);
-
-	header.size = size;
-
-	return header;
-}
-
-/*
-	Purpose:			Frees the memory allocated to an array
-	Parameters:			header - A pointer to the array header to free
-	Return value:		None
-	Function calls:		assert(), free()
-	Asserts:			header cannot be NULL
-	Revision history:	1.0 - 15/04/2014 adapted from htblFree() by Joshua Tylerr
-*/
-void aryFree(array *header)
-{
-	assert(header != NULL);
-
-	free(header->data);
-	header->data = NULL;
-	header->size = 0;
-}
-
-
-/*
-	Purpose:			Perform selection sort on an array of data to sort it into ascending order
-	Parameters:			list - the array to sort
-						noReps - the number of times to repeat sorting each item (for accurate timing)
-	Return value:		A runtimeStats structure containing statistics about the sorting
-	Function calls:		None
-	Asserts:			None
-	Revision history:	1.0 - 15/04/2014 created by Joshua Tyler
-						2.6 - 16/04/2014 JT updated to add conditionally compiling swap and comparison stats.
-*/
-runtimeStats arySelSort(array list, unsigned int noReps)
-{
-	unsigned int sorted, lowest, position, repCtr;
-
-	int temp;
-
-	runtimeStats returnStats = {0.0, 0, 0, 0, 0};
-
-	time_t start, end;
-	
-	start=clock();
-	for(sorted = 0; sorted < list.size; sorted++)
-	{
-		for(repCtr = noReps; repCtr > 0; repCtr--)
-		{
-			for(position = lowest = sorted; position < list.size; position++)
-			{
-				dbgCtrInc(repCtr == 1, returnStats.comparisons);
-
-				if(list.data[position] < list.data[lowest])
-					lowest = position;
-			}
-			if(repCtr == 1)
-				if(lowest != sorted)
-				{
-					dbgCtrInc(repCtr == 1, returnStats.swaps);
-					temp = list.data[sorted];
-					list.data[sorted] = list.data[lowest];
-					list.data[lowest] = temp;
-				}
-		}
-	}
-	end = clock();
-
-	returnStats.duration = ( (double)(end-start)/(double)CLOCKS_PER_SEC )/(double)noReps;
-
-	returnStats.attempted = returnStats.processed = list.size;
-
-	return returnStats;
-}
-
-/*
-	Purpose:			Transfer data from a linked list to an array
-	Parameters:			None
-	Return value:		None
-	Function calls:		None
-	Asserts:			None
-	Revision history:	1.0 - 15/04/2014 created by Joshua Tyler
-*/
-void aryFromList(array destination, dataListElement *source)
-{
-	unsigned int i;
-
-	dataListElement *current;
-	current = source;
-
-	for(i=0; current != NULL; i++)
-	{
-		assert(i < destination.size);
-
-		destination.data[i] = current->data;
-		current = current->next;
-	}
-}
-
-/*
-	Purpose:			Print the contents of an array
-	Parameters:			None
-	Return value:		None
-	Function calls:		None
-	Asserts:			None
-	Revision history:	1.0 - 15/04/2014 created by Joshua Tyler
-*/
-void aryPrint(array list, FILE *stream)
-{
-	unsigned int i;
-	for(i=0;i<list.size;i++)
-		fprintf(stream,"%d, ", list.data[i]);
-
-	fputc('\n',stream);
-
-}
-
-/*
-	Purpose:			Return the number of repeats that should be performed to get reasonable results
-	Parameters:			noForSize1 - The number of repeats which would be performed for a dataset of size 1
-						dataSize -  The size of the dataset
-	Return value:		The number of repeats which should be performed
-	Function calls:		None
-	Asserts:			None
-	Revision history:	1.0 - 14/04/2014 created by Joshua Tyler
-*/
-unsigned int setNoReps(unsigned int noForSize1, unsigned int dataSize)
-{
-	/* If the data size is greater than or equal to the number of repeats for size 1, just repeat once */
-	if(dataSize >= noForSize1)
-		return 1;
-
-	/* Otherwise, division will allow the number of repeats to decrease linearly as dataSize increases */
-	return noForSize1 / dataSize;
-}
-
 /*
 	Purpose:			Free the memory used by a data linked list
 	Parameters:			currentElement - A pointer to the first element to be removed
@@ -430,88 +500,119 @@ void datlFree(dataListElement *currentElement)
 
 }
 
+/* Debug linked list functions */
 /*
-	Purpose:			Perform binary search on a data array using values from a linked list
-	Parameters:			None
+	Purpose:			Free the memory used by a debug linked list
+	Parameters:			list - a pointer to the list whose memory we want to free
 	Return value:		None
 	Function calls:		None
-	Asserts:			None
-	Revision history:	1.0 - 16/04/2014 created by Joshua Tyler
+	Asserts:			list cannot be NULL
+	Revision history:	1.0 - 11/04/2014 created by Joshua Tyler
+						2.0 - 14/04/14 JT modified to add assert.
 */
-runtimeStats aryBinSearchList(array dataArray, dataListElement *currentSearchListElement, unsigned int noReps, debugList *messages)
+void deblFree(debugList *list)
 {
-	assert(dataArray.data != NULL);
-	assert(dataArray.size > 0);
-	assert(messages != NULL);
+	assert(list != NULL);
 
-	runtimeStats returnStats = {0,0,0};
-	time_t start, end;
+	debugListElement *nodeToFree = list->first;
 
-	unsigned int repCtr;
+	debugListElement *temp;
+
+	while(nodeToFree != NULL)
+	{
+		temp = nodeToFree->next;
+		free(nodeToFree);
+		nodeToFree = temp;
+	}
+
+	list->first = list->last = NULL;
+
+}
+
+/*
+	Purpose:			Add a message to a debug linked list
+	Parameters:			list - the list header of the list to add it to
+						value and event - parameters to save into the list
+						lastRep - if TRUE this function is being called on the last repitition of the store/search action
+	Return value:		None
+	Function calls:		Direct function calls - assert(), malloc()
+						Via checkPtr macro - fprintf(), exit()
+	Asserts:			list cannot be NULL
+	Revision history:	1.0 - 16/04/2014 JT adapted from deblAddMsg() in hashed.cpp
+*/
+void deblAddMsg(debugList *list, int value,  debugEvent event, unsigned int lastRep)
+{
+	assert(list != NULL);
+
+	/* If this is not the last repitition, return to avoid repeat messages */
+	if(!lastRep)
+		return;
+
+	debugListElement *elementToAdd;
+
+	/* Allocate space for an element */
+	elementToAdd = (debugListElement *)malloc(sizeof(debugListElement));
+	checkPtr(elementToAdd);
+
+	/* Set values of new element */
+	elementToAdd->value = value;
+	elementToAdd->event = event;
+	elementToAdd->next = NULL;
+
+	/* Add element to the end of the list */
+	if(list->first == NULL)
+	{
+		list->first = elementToAdd;
+		list->last = elementToAdd;
+	} else {
+		list->last->next = elementToAdd;
+		list->last = elementToAdd;
+	}
+
+}
+
+/*
+	Purpose:			Prints the messages stored in a debugList
+	Parameters:			list - the debugList to print
+						indentLevel - the number of tabs to print before each message
+						stream - the output stream to print to
+	Return value:		None
+	Function calls:		assert(), printSpacers(), fprintf(), fputc()
+	Asserts:			stream cannot be NULL
+	Revision history:	1.0 - 16/04/2014 adapted form deblPrint() used in hash.cpp by Joshua Tyler
+*/
+void deblPrint(debugList list, unsigned int indentLevel, FILE *stream)
+{
+	assert(stream != NULL);
 	
-	start = clock();
-	while(currentSearchListElement != NULL)
+	debugListElement *current = list.first;
+
+	while(current != NULL)
 	{
-		returnStats.attempted++;
-		for(repCtr = noReps; repCtr > 0; repCtr--)
+		printSpacers(stream, '\t', indentLevel);
+		switch (current->event)
 		{
-			if( aryBinSearchNum(dataArray, currentSearchListElement->data) == SUCCESS)
-			{
-				/* This is true if the element was found or stored successfully */
-				dbgListMsg(messages, currentSearchListElement->data, found, repCtr == 1);
-				if(repCtr == 1)
-					returnStats.processed++;
-			} else {
-				dbgListMsg(messages, currentSearchListElement->data, notFound, repCtr == 1);
-			}
+		case found:
+			fprintf(stream,"Value %d found in array.\n", current->value);
+			break;
+
+		case notFound:
+			fprintf(stream,"Value %d not found in array.\n", current->value);
+			break;
+
+		default:
+			assert(1);
+			break;
 		}
-		currentSearchListElement = currentSearchListElement ->next;
+		current = current->next;
 	}
-	end = clock();
 
-	returnStats.duration = ( (double)(end-start)/(double)CLOCKS_PER_SEC )/(double)noReps;
+	fputc('\n',stream);
 
-	return returnStats;
-
+	return;
 }
 
-/*
-	Purpose:			Perform binary search on an array with a specific value
-	Parameters:			None
-	Return value:		None
-	Function calls:		None
-	Asserts:			None
-	Revision history:	1.0 - 16/04/2014 created by Joshua Tyler
-*/
-unsigned int aryBinSearchNum(array dataArray, int searchData)
-{
-	assert(dataArray.data != NULL);
-	assert(dataArray.size > 0);
-
-	unsigned int left, right, mid;
-
-	left = 0;
-	right = dataArray.size - 1;
-
-	while(left <= right)
-	{
-		mid = (left+right)/2;
-
-		if(dataArray.data[mid] > searchData)
-		{
-			right = mid-1;
-		} else if(dataArray.data[mid] < searchData)
-		{
-			left = mid + 1;
-		} else
-		{
-			return SUCCESS;
-		}
-
-	}
-	return FAIL;
-}
-
+/* Generic printing functions */
 /*
 	Purpose:			Print a header file to introduce the programs output
 	Parameters:			stream - the stream to write the data to
@@ -561,138 +662,6 @@ void printHeader(FILE *stream, char *method, char *dataFilename, char *searchFil
 }
 
 /*
-	Purpose:			Prints a row of spacer characters
-	Parameters:			stream - the stream to print the character to
-						character - the character to print
-						number - the number of spacers to print
-	Return value:		None
-	Function calls:		assert(), fputc()
-	Asserts:			stream cannot be NULL
-	Revision history:	1.0 - 11/04/2014 created by Joshua Tyler
-						2.0 - 14/04/14 JT removed new line termination for greater flexibility
-*/
-void printSpacers(FILE *stream, char character, unsigned int number)
-{
-	assert(stream != NULL);
-	unsigned int i;
-	for(i=0; i<number;i++)
-		fputc(character,stream);
-}
-
-/*
-	Purpose:			Add a message to a debug linked list
-	Parameters:			list - the list header of the list to add it to
-						value and event - parameters to save into the list
-						lastRep - if TRUE this function is being called on the last repitition of the store/search action
-	Return value:		None
-	Function calls:		Direct function calls - assert(), malloc()
-						Via checkPtr macro - fprintf(), exit()
-	Asserts:			list cannot be NULL
-	Revision history:	1.0 - 16/04/2014 JT adapted from deblAddMsg() in hashed.cpp
-*/
-void deblAddMsg(debugList *list, int value,  debugEvent event, unsigned int lastRep)
-{
-	assert(list != NULL);
-
-	/* If this is not the last repitition, return to avoid repeat messages */
-	if(!lastRep)
-		return;
-
-	debugListElement *elementToAdd;
-
-	/* Allocate space for an element */
-	elementToAdd = (debugListElement *)malloc(sizeof(debugListElement));
-	checkPtr(elementToAdd);
-
-	/* Set values of new element */
-	elementToAdd->value = value;
-	elementToAdd->event = event;
-	elementToAdd->next = NULL;
-
-	/* Add element to the end of the list */
-	if(list->first == NULL)
-	{
-		list->first = elementToAdd;
-		list->last = elementToAdd;
-	} else {
-		list->last->next = elementToAdd;
-		list->last = elementToAdd;
-	}
-
-}
-
-
-/*
-	Purpose:			Prints the messages stored in a debugList
-	Parameters:			list - the debugList to print
-						indentLevel - the number of tabs to print before each message
-						stream - the output stream to print to
-	Return value:		None
-	Function calls:		assert(), printSpacers(), fprintf(), fputc()
-	Asserts:			stream cannot be NULL
-	Revision history:	1.0 - 16/04/2014 adapted form deblPrint() used in hash.cpp by Joshua Tyler
-*/
-void deblPrint(debugList list, unsigned int indentLevel, FILE *stream)
-{
-	assert(stream != NULL);
-	
-	debugListElement *current = list.first;
-
-	while(current != NULL)
-	{
-		printSpacers(stream, '\t', indentLevel);
-		switch (current->event)
-		{
-		case found:
-			fprintf(stream,"Value %d found in array.\n", current->value);
-			break;
-
-		case notFound:
-			fprintf(stream,"Value %d not found in array.\n", current->value);
-			break;
-
-		default:
-			assert(1);
-			break;
-		}
-		current = current->next;
-	}
-
-	fputc('\n',stream);
-
-	return;
-}
-
-/*
-	Purpose:			Free the memory used by a debug linked list
-	Parameters:			list - a pointer to the list whose memory we want to free
-	Return value:		None
-	Function calls:		None
-	Asserts:			list cannot be NULL
-	Revision history:	1.0 - 11/04/2014 created by Joshua Tyler
-						2.0 - 14/04/14 JT modified to add assert.
-*/
-void deblFree(debugList *list)
-{
-	assert(list != NULL);
-
-	debugListElement *nodeToFree = list->first;
-
-	debugListElement *temp;
-
-	while(nodeToFree != NULL)
-	{
-		temp = nodeToFree->next;
-		free(nodeToFree);
-		nodeToFree = temp;
-	}
-
-	list->first = list->last = NULL;
-
-}
-
-
-/*
 	Purpose:			Print the main body of results
 	Parameters:			stream - the stream to output the results to
 						comparisons - the number of comparisons made (0 if debug output is off)
@@ -728,6 +697,25 @@ void printAryBody(FILE *stream, unsigned int comparisons, unsigned int swaps, de
 }
 
 /*
+	Purpose:			Prints a row of spacer characters
+	Parameters:			stream - the stream to print the character to
+						character - the character to print
+						number - the number of spacers to print
+	Return value:		None
+	Function calls:		assert(), fputc()
+	Asserts:			stream cannot be NULL
+	Revision history:	1.0 - 11/04/2014 created by Joshua Tyler
+						2.0 - 14/04/14 JT removed new line termination for greater flexibility
+*/
+void printSpacers(FILE *stream, char character, unsigned int number)
+{
+	assert(stream != NULL);
+	unsigned int i;
+	for(i=0; i<number;i++)
+		fputc(character,stream);
+}
+
+/*
 	Purpose:			Print a results footer
 	Parameters:			storeTime and searchTime- the time in seconds taken to store and search the data
 						saveList and searchList - the lists containing the messages from saving and searching
@@ -748,10 +736,53 @@ void printFooter(FILE *stream, double storeTime, double searchTime)
 }
 
 /*
-	Purpose:			
-	Parameters:			None
+	Purpose:			Write statistics to an output text file in CSV format
+	Parameters:			fileName - the name of the output file to append to
+						noStored, noSearched, noFound, timeToStore, timeToSearch - parameters to output
 	Return value:		None
+	Function calls:		Direct function calls - assert(), fopen(), fprintf(), fclose()
+						Via checkPtr macro - fprintf(), exit()
+	Asserts:			fileName cannot be NULL
+	Revision history:	1.0 - 14/04/2014 created by Joshua Tyler
+						2.0 - 15/04/2014 JT added the filename as a parameter
+*/
+void printAddToFile(char *fileName, unsigned int noStored, unsigned int noSearched, unsigned int noFound, double timeToStore, double timeToSearch)
+{
+	assert(fileName != NULL);
+
+	/* Open the file */
+	FILE *outputFile;
+	outputFile = fopen(fileName,"a");
+	checkPtr(outputFile);
+
+	/* Output the data */
+	fprintf(outputFile,"%d,%d,%d,%e,%e\n", noStored, noSearched, noFound, timeToStore, timeToSearch);
+
+	/* Close the file */
+	fclose(outputFile);
+}
+
+/* Miscellaneous functions */
+/*
+	Purpose:			Return the number of repeats that should be performed to get reasonable results
+	Parameters:			noForSize1 - The number of repeats which would be performed for a dataset of size 1
+						dataSize -  The size of the dataset
+	Return value:		The number of repeats which should be performed
 	Function calls:		None
 	Asserts:			None
 	Revision history:	1.0 - 14/04/2014 created by Joshua Tyler
 */
+unsigned int setNoReps(unsigned int noForSize1, unsigned int dataSize)
+{
+//	dataSize = dataSize * dataSize; // Square datasize so that it goes down quadratically.
+
+	if(dataSize == 0)
+		return noForSize1;
+
+	/* If the data size is greater than or equal to the number of repeats for size 1, just repeat once */
+	if(dataSize >= noForSize1)
+		return 1;
+
+	/* Otherwise, division will allow the number of repeats to decrease quadratically as dataSize increases */
+	return noForSize1 / dataSize;
+}

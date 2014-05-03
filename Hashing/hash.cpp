@@ -8,10 +8,10 @@
 /* Symbolic constants prescribed by the specification */
 #define DATA_FILENAME	"input.txt"
 #define SEARCH_FILENAME	"find.txt"
-#define HASH_TABLE_SIZE	30
+#define HASH_TABLE_SIZE	20000
 
 /* Commenting out the following line ENABLES debug mode. Debug mode should be DISABLED for optimal performance */
-//#define NDEBUG
+#define NDEBUG
 
 /* Remove warnings about using insecure open and read functions (used carefully to maintain ANSI complience) */
 #define _CRT_SECURE_NO_WARNINGS 
@@ -22,7 +22,7 @@
 #include <time.h>
 
 /* The number of times which a store/search operation should be repeated on a data set of size 1 to ensure accurate results. */
-#define NO_REPS_FOR_SIZE_1 100000
+#define NO_REPS_FOR_SIZE_1 500000
 
 /* The number of spacer characters to print between sections of the printed report */
 #define NO_SPACERS 50
@@ -34,9 +34,9 @@
 /* Options defining whether to output the statistics to a text file */
 
 /* Comment out this line to disable outputting to a file */
-//#define OUTPUT_TO_FILE
+#define OUTPUT_TO_FILE
 
-#define OUTPUT_FILENAME "outputStats.txt"
+#define OUTPUT_FILENAME "hashOutputStats.txt"
 
 /* Constants relating to the debug mode */
 
@@ -274,6 +274,7 @@ int main(void)
 	return EXIT_SUCCESS;
 }
 
+/* Hash table functions */
 /*
 	Purpose:			Creates a hash table and initialises all elements to empty
 	Parameters:			size - the size to create the table
@@ -312,77 +313,6 @@ void htblFree(hashTable *table)
 	free(table->array);
 	table->array = NULL;
 	table->size = 0;
-}
-
-/*
-	Purpose:			Read the integers (stored one per line) from a text file to a data linked list structure
-	Parameters:			filename - The filename of the file to open.
-						head - The address of a pointer to be set to point to the first element
-	Return value:		The number of integers stored
-	Function calls:		Direct function calls - assert(), fopen(), fscanf(), malloc(), fclose()
-						Via checkPtr macro - fprintf(), exit()
-	Asserts:			fileName cannot point to nothing
-						head cannot be NULL
-	Revision history:	1.0 - 11/04/2014 created by Joshua Tyler
-*/
-unsigned int datlCreateFromFile(char* fileName, dataListElement** head)
-{
-	assert(fileName != NULL);
-	assert(head != NULL);
-
-	FILE *inputFile = fopen(fileName,"r");
-	checkPtr(inputFile);
-
-	unsigned int count = 0;
-	int currentNum;
-	dataListElement *currentItem = NULL;
-	dataListElement *temp;
-	*head = NULL;
-	while( fscanf(inputFile,"%d", &currentNum) == 1)
-	{
-		count++;
-		temp = (dataListElement *) malloc(sizeof(dataListElement));
-		checkPtr(temp);
-
-		/* If this is the first item in the list, set the head pointer */
-		if(currentItem == NULL)
-		{
-			*head = currentItem = temp;
-		} else {
-			currentItem->next = temp;
-			currentItem = temp;
-		}
-
-		currentItem->data = currentNum;
-		currentItem->next = NULL;
-	}
-
-	fclose(inputFile);
-	return count;
-}
-
-/*
-	Purpose:			Print the contents of a linked list to stdout (for debugging)
-	Parameters:			current -  a pointer to the first element in the linked list
-						stream - the output stream to write the contents to
-	Return value:		None
-	Function calls:		assert(), fprintf(), fputc()
-	Asserts:			stream cannot be NULL
-	Revision history:	1.0 - 11/04/2014 created by Joshua Tyler
-*/
-void datlPrint(dataListElement* current, FILE *stream)
-{
-	assert(stream != NULL);
-	
-	while(current != NULL)
-	{
-		fprintf(stream,"%d, ", current->data);
-		current = current->next;
-	}
-
-	fputc('\n',stream);
-
-	return;
 }
 
 /*
@@ -530,29 +460,6 @@ unsigned int htblProcNum(hashTable tableHeader, int numToProc, hashProcess opera
 }
 
 /*
-	Purpose:			Find the hash of a given number using the division method.
-	Parameters:			num - the number to find the hash of
-						size - the size of the table
-	Return value:		The index of the hash.
-	Function calls:		assert()
-	Asserts:			size must be greater than zero.
-						return value must be less than the array size
-	Revision history:	1.0 - 11/04/2014 created by Joshua Tylerr
-*/
-unsigned int htblDivHash(int num, unsigned int size)
-{
-	assert(size > 0);
-
-	unsigned int hash;
-	hash = num  % size;
-
-	assert(hash < size);
-
-	return hash;
-}
-
-
-/*
 	Purpose:			Print out the content of a hash table (for debugging)
 	Parameters:			table - the table to print
 						stream - the stream to print it to
@@ -593,6 +500,100 @@ void htblPrint(hashTable table, FILE *stream)
 }
 
 /*
+	Purpose:			Find the hash of a given number using the division method.
+	Parameters:			num - the number to find the hash of
+						size - the size of the table
+	Return value:		The index of the hash.
+	Function calls:		assert()
+	Asserts:			size must be greater than zero.
+						return value must be less than the array size
+	Revision history:	1.0 - 11/04/2014 created by Joshua Tylerr
+*/
+unsigned int htblDivHash(int num, unsigned int size)
+{
+	assert(size > 0);
+
+	unsigned int hash;
+	hash = num  % size;
+
+	assert(hash < size);
+
+	return hash;
+}
+
+/* Data linked list functions */
+/*
+	Purpose:			Read the integers (stored one per line) from a text file to a data linked list structure
+	Parameters:			filename - The filename of the file to open.
+						head - The address of a pointer to be set to point to the first element
+	Return value:		The number of integers stored
+	Function calls:		Direct function calls - assert(), fopen(), fscanf(), malloc(), fclose()
+						Via checkPtr macro - fprintf(), exit()
+	Asserts:			fileName cannot point to nothing
+						head cannot be NULL
+	Revision history:	1.0 - 11/04/2014 created by Joshua Tyler
+*/
+unsigned int datlCreateFromFile(char* fileName, dataListElement** head)
+{
+	assert(fileName != NULL);
+	assert(head != NULL);
+
+	FILE *inputFile = fopen(fileName,"r");
+	checkPtr(inputFile);
+
+	unsigned int count = 0;
+	int currentNum;
+	dataListElement *currentItem = NULL;
+	dataListElement *temp;
+	*head = NULL;
+	while( fscanf(inputFile,"%d", &currentNum) == 1)
+	{
+		count++;
+		temp = (dataListElement *) malloc(sizeof(dataListElement));
+		checkPtr(temp);
+
+		/* If this is the first item in the list, set the head pointer */
+		if(currentItem == NULL)
+		{
+			*head = currentItem = temp;
+		} else {
+			currentItem->next = temp;
+			currentItem = temp;
+		}
+
+		currentItem->data = currentNum;
+		currentItem->next = NULL;
+	}
+
+	fclose(inputFile);
+	return count;
+}
+
+/*
+	Purpose:			Print the contents of a linked list to stdout (for debugging)
+	Parameters:			current -  a pointer to the first element in the linked list
+						stream - the output stream to write the contents to
+	Return value:		None
+	Function calls:		assert(), fprintf(), fputc()
+	Asserts:			stream cannot be NULL
+	Revision history:	1.0 - 11/04/2014 created by Joshua Tyler
+*/
+void datlPrint(dataListElement* current, FILE *stream)
+{
+	assert(stream != NULL);
+	
+	while(current != NULL)
+	{
+		fprintf(stream,"%d, ", current->data);
+		current = current->next;
+	}
+
+	fputc('\n',stream);
+
+	return;
+}
+
+/*
 	Purpose:			Free the memory used by a data linked list
 	Parameters:			currentElement - A pointer to the first element to be removed
 	Return value:		None
@@ -615,6 +616,7 @@ void datlFree(dataListElement *currentElement)
 
 }
 
+/* Debug linked list functions */
 /*
 	Purpose:			Free the memory used by a debug linked list
 	Parameters:			list - a pointer to the list whose memory we want to free
@@ -641,73 +643,6 @@ void deblFree(debugList *list)
 
 	list->first = list->last = NULL;
 
-}
-
-/*
-	Purpose:			Print a header file to introduce the programs output
-	Parameters:			stream - the stream to write the data to
-						method - the name of the method being used to store the data
-						dataFilename - the name of the text file to read the data to be stored from
-						searchFilename - the name of the text file to read the data to be searched from
-						stored - the number of integers stored
-						searched - the number of integers searched
-						found - the number of integers found
-	Return value:		None
-	Function calls:		assert(), printSpacers(), fputc(), fprintf()
-	Asserts:			stream cannot be NULL
-						method cannot be NULL
-						dataFilename cannot be NULL
-						searchFilename cannot be NULL
-	Revision history:	1.0 - 11/04/2014 created by Joshua Tyler
-						2.0 - 14/04/14 JT modified to change format and display more information
-*/
-void printHeader(FILE *stream, char *method, char *dataFilename, char *searchFilename, unsigned int stored, unsigned int searched, unsigned int found)
-{
-	assert(stream != NULL);
-	assert(method != NULL);
-	assert(dataFilename != NULL);
-	assert(searchFilename != NULL);
-
-	fputs("Data storage and retrieval: A comparison of hashing and directed search of sorted data.\n", stream);
-
-	printSpacers(stream, '=', NO_SPACERS);
-	fputc('\n',stream);
-
-	fprintf(stream, "Storage method: %s\n", method);
-
-	fputc('\n',stream);
-
-	fprintf(stream, "Input data loaded from file: %s\n", dataFilename);
-	fprintf(stream, "Retreival data loaded from file: %s\n", searchFilename);
-
-	fputc('\n',stream);
-
-	fprintf(stream, "Number of items stored: %d\n", stored);
-	fprintf(stream, "Number of items searched: %d\n", searched);
-	fprintf(stream, "Number of items found: %d\n", found);
-
-	printSpacers(stream, '-', NO_SPACERS);
-	fputc('\n',stream);
-	
-}
-
-/*
-	Purpose:			Prints a row of spacer characters
-	Parameters:			stream - the stream to print the character to
-						character - the character to print
-						number - the number of spacers to print
-	Return value:		None
-	Function calls:		assert(), fputc()
-	Asserts:			stream cannot be NULL
-	Revision history:	1.0 - 11/04/2014 created by Joshua Tyler
-						2.0 - 14/04/14 JT removed new line termination for greater flexibility
-*/
-void printSpacers(FILE *stream, char character, unsigned int number)
-{
-	assert(stream != NULL);
-	unsigned int i;
-	for(i=0; i<number;i++)
-		fputc(character,stream);
 }
 
 /*
@@ -753,7 +688,6 @@ void deblAddMsg(debugList *list, int value, unsigned int location, debugEvent ev
 	}
 
 }
-
 
 /*
 	Purpose:			Prints the messages stored in a debugList
@@ -808,6 +742,54 @@ void deblPrint(debugList list, unsigned int indentLevel, FILE *stream)
 	return;
 }
 
+/* Generic printing functions */
+/*
+	Purpose:			Print a header file to introduce the programs output
+	Parameters:			stream - the stream to write the data to
+						method - the name of the method being used to store the data
+						dataFilename - the name of the text file to read the data to be stored from
+						searchFilename - the name of the text file to read the data to be searched from
+						stored - the number of integers stored
+						searched - the number of integers searched
+						found - the number of integers found
+	Return value:		None
+	Function calls:		assert(), printSpacers(), fputc(), fprintf()
+	Asserts:			stream cannot be NULL
+						method cannot be NULL
+						dataFilename cannot be NULL
+						searchFilename cannot be NULL
+	Revision history:	1.0 - 11/04/2014 created by Joshua Tyler
+						2.0 - 14/04/14 JT modified to change format and display more information
+*/
+void printHeader(FILE *stream, char *method, char *dataFilename, char *searchFilename, unsigned int stored, unsigned int searched, unsigned int found)
+{
+	assert(stream != NULL);
+	assert(method != NULL);
+	assert(dataFilename != NULL);
+	assert(searchFilename != NULL);
+
+	fputs("Data storage and retrieval: A comparison of hashing and directed search of sorted data.\n", stream);
+
+	printSpacers(stream, '=', NO_SPACERS);
+	fputc('\n',stream);
+
+	fprintf(stream, "Storage method: %s\n", method);
+
+	fputc('\n',stream);
+
+	fprintf(stream, "Input data loaded from file: %s\n", dataFilename);
+	fprintf(stream, "Retreival data loaded from file: %s\n", searchFilename);
+
+	fputc('\n',stream);
+
+	fprintf(stream, "Number of items stored: %d\n", stored);
+	fprintf(stream, "Number of items searched: %d\n", searched);
+	fprintf(stream, "Number of items found: %d\n", found);
+
+	printSpacers(stream, '-', NO_SPACERS);
+	fputc('\n',stream);
+	
+}
 
 /*
 	Purpose:			Print the main body of results
@@ -845,6 +827,25 @@ void printHtblBody(FILE *stream, debugList saveList, debugList searchList)
 }
 
 /*
+	Purpose:			Prints a row of spacer characters
+	Parameters:			stream - the stream to print the character to
+						character - the character to print
+						number - the number of spacers to print
+	Return value:		None
+	Function calls:		assert(), fputc()
+	Asserts:			stream cannot be NULL
+	Revision history:	1.0 - 11/04/2014 created by Joshua Tyler
+						2.0 - 14/04/14 JT removed new line termination for greater flexibility
+*/
+void printSpacers(FILE *stream, char character, unsigned int number)
+{
+	assert(stream != NULL);
+	unsigned int i;
+	for(i=0; i<number;i++)
+		fputc(character,stream);
+}
+
+/*
 	Purpose:			Print the results footer for the hash table
 	Parameters:			storeTime and searchTime- the time in seconds taken to store and search the data
 						percentFull - the percentage of the hash table that's filled.
@@ -867,25 +868,6 @@ void printHtblFooter(FILE *stream, double storeTime, double searchTime, double p
 
 	fprintf(stream,"Hash table %2.0lf%% full.\n", percentFull);
 
-}
-
-/*
-	Purpose:			Return the number of repeats that should be performed to get reasonable results
-	Parameters:			noForSize1 - The number of repeats which would be performed for a dataset of size 1
-						dataSize -  The size of the dataset
-	Return value:		The number of repeats which should be performed
-	Function calls:		None
-	Asserts:			None
-	Revision history:	1.0 - 14/04/2014 created by Joshua Tyler
-*/
-unsigned int setNoReps(unsigned int noForSize1, unsigned int dataSize)
-{
-	/* If the data size is greater than or equal to the number of repeats for size 1, just repeat once */
-	if(dataSize >= noForSize1)
-		return 1;
-
-	/* Otherwise, division will allow the number of repeats to decrease linearly as dataSize increases */
-	return noForSize1 / dataSize;
 }
 
 /*
@@ -915,12 +897,23 @@ void printAddToFile(char *fileName, unsigned int noStored, unsigned int noSearch
 	fclose(outputFile);
 }
 
-
+/* Miscellaneous functions */
 /*
-	Purpose:			
-	Parameters:			None
-	Return value:		None
+	Purpose:			Return the number of repeats that should be performed to get reasonable results
+	Parameters:			noForSize1 - The number of repeats which would be performed for a dataset of size 1
+						dataSize -  The size of the dataset
+	Return value:		The number of repeats which should be performed
 	Function calls:		None
 	Asserts:			None
 	Revision history:	1.0 - 14/04/2014 created by Joshua Tyler
 */
+unsigned int setNoReps(unsigned int noForSize1, unsigned int dataSize)
+{
+	/* If the data size is greater than or equal to the number of repeats for size 1, just repeat once */
+	if(dataSize >= noForSize1)
+		return 1;
+
+	/* Otherwise, division will allow the number of repeats to decrease linearly as dataSize increases */
+	return noForSize1 / dataSize;
+}
+
