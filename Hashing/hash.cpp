@@ -500,7 +500,7 @@ void htblPrint(hashTable table, FILE *stream)
 }
 
 /*
-	Purpose:			Find the hash of a given number using the division method.
+	Purpose:			Find the hash of a given number using the division method
 	Parameters:			num - the number to find the hash of
 						size - the size of the table
 	Return value:		The index of the hash.
@@ -570,7 +570,7 @@ unsigned int datlCreateFromFile(char* fileName, dataListElement** head)
 }
 
 /*
-	Purpose:			Print the contents of a linked list to stdout (for debugging)
+	Purpose:			Print the contents of a data linked list (for debugging)
 	Parameters:			current -  a pointer to the first element in the linked list
 						stream - the output stream to write the contents to
 	Return value:		None
@@ -621,7 +621,7 @@ void datlFree(dataListElement *currentElement)
 	Purpose:			Free the memory used by a debug linked list
 	Parameters:			list - a pointer to the list whose memory we want to free
 	Return value:		None
-	Function calls:		None
+	Function calls:		free()
 	Asserts:			list cannot be NULL
 	Revision history:	1.0 - 11/04/2014 created by Joshua Tyler
 						2.0 - 14/04/14 JT modified to add assert.
@@ -690,7 +690,7 @@ void deblAddMsg(debugList *list, int value, unsigned int location, debugEvent ev
 }
 
 /*
-	Purpose:			Prints the messages stored in a debugList
+	Purpose:			Prints the messages stored in a debug linked list
 	Parameters:			list - the debugList to print
 						indentLevel - the number of tabs to print before each message
 						stream - the output stream to print to
@@ -744,7 +744,7 @@ void deblPrint(debugList list, unsigned int indentLevel, FILE *stream)
 
 /* Generic printing functions */
 /*
-	Purpose:			Print a header file to introduce the programs output
+	Purpose:			Print a header to introduce the programs' output
 	Parameters:			stream - the stream to write the data to
 						method - the name of the method being used to store the data
 						dataFilename - the name of the text file to read the data to be stored from
@@ -899,7 +899,7 @@ void printAddToFile(char *fileName, unsigned int noStored, unsigned int noSearch
 
 /* Miscellaneous functions */
 /*
-	Purpose:			Return the number of repeats that should be performed to get reasonable results
+	Purpose:			Find the number of repeats that should be performed to get reasonable results
 	Parameters:			noForSize1 - The number of repeats which would be performed for a dataset of size 1
 						dataSize -  The size of the dataset
 	Return value:		The number of repeats which should be performed
@@ -909,6 +909,9 @@ void printAddToFile(char *fileName, unsigned int noStored, unsigned int noSearch
 */
 unsigned int setNoReps(unsigned int noForSize1, unsigned int dataSize)
 {
+	if(dataSize == 0)
+		return noForSize1;
+
 	/* If the data size is greater than or equal to the number of repeats for size 1, just repeat once */
 	if(dataSize >= noForSize1)
 		return 1;
@@ -916,4 +919,3 @@ unsigned int setNoReps(unsigned int noForSize1, unsigned int dataSize)
 	/* Otherwise, division will allow the number of repeats to decrease linearly as dataSize increases */
 	return noForSize1 / dataSize;
 }
-

@@ -20,8 +20,11 @@
 #include <assert.h>
 #include <time.h>
 
-/* The number of times which a store/search operation should be repeated on a data set of size 1 to ensure accurate results. */
+/* The number of times which a sort operation should be repeated on a data set of size 1 to ensure accurate results. */
 #define NO_REPS_FOR_SIZE_1 500000
+
+/* The minimum number of time which an binary search operation can run for, in seconds, to ensure accurate results */
+#define MIN_TIME 3
 
 /* The number of spacer characters to print between sections of the printed report */
 #define NO_SPACERS 50
@@ -33,7 +36,7 @@
 /* Options defining whether to output the statistics to a text file */
 
 /* Comment out this line to disable outputting to a file */
-#define OUTPUT_TO_FILE
+//#define OUTPUT_TO_FILE
 
 #define OUTPUT_FILENAME "selSortOutputStats.txt"
 
@@ -114,7 +117,7 @@ void aryFree(array *header);
 runtimeStats arySelSort(array list, unsigned int noReps);
 void aryFromList(array destination, dataListElement *source);
 void aryPrint(array list, FILE *stream);
-runtimeStats aryBinSearchList(array dataArray, dataListElement *currentSearchListElement, unsigned int noReps, debugList *messages);
+runtimeStats aryBinSearchList(array dataArray, dataListElement *firstElement, debugList *messages);
 unsigned int aryBinSearchNum(array dataArray, int searchData);
 
 /* Data linked list functions - prefix: "datl" (DATa linked List) */
@@ -167,8 +170,7 @@ int main(void)
 	/* Search for the items in the array using binary search */
 	runtimeStats searchStats;
 	debugList searchMessages = {NULL,NULL};
-	searchStats = aryBinSearchList(mainArray, searchList,setNoReps(NO_REPS_FOR_SIZE_1, noToSearch), &searchMessages);
-//	searchStats = aryBinSearchList(mainArray, searchList,NO_REPS_FOR_SIZE_1, &searchMessages); // Binary search is really fast, so just use the no. of reps for size 1 for all!
+	searchStats = aryBinSearchList(mainArray, searchList, &searchMessages);
 
 	/* We're now finished with the search list and array */
 	datlFree(searchList);
@@ -234,13 +236,18 @@ void aryFree(array *header)
 	Parameters:			list - the array to sort
 						noReps - the number of times to repeat sorting each item (for accurate timing)
 	Return value:		A runtimeStats structure containing statistics about the sorting
-	Function calls:		None
-	Asserts:			None
+	Function calls:		Direct function calls - assert(), clock().
+	Asserts:			the array data cannot be NULL
+						the array size cannot be zero
 	Revision history:	1.0 - 15/04/2014 created by Joshua Tyler
-						2.6 - 16/04/2014 JT updated to add conditionally compiling swap and comparison stats.
+						2.0 - 16/04/2014 JT updated to add conditionally compiling swap and comparison stats.
+						3.0 - 05/05/2014 JT modified to add asserts
 */
 runtimeStats arySelSort(array list, unsigned int noReps)
 {
+	assert(list.data != NULL);
+	assert(list.size > 0);
+
 	unsigned int sorted, lowest, position, repCtr;
 
 	int temp;
@@ -283,10 +290,11 @@ runtimeStats arySelSort(array list, unsigned int noReps)
 
 /*
 	Purpose:			Transfer data from a linked list to an array
-	Parameters:			None
+	Parameters:			destination - the array to save the data in
+						source - a pointer to the first element in the data linked list
 	Return value:		None
-	Function calls:		None
-	Asserts:			None
+	Function calls:		assert()
+	Asserts:			The array must be at least as big as the number of items we want to store
 	Revision history:	1.0 - 15/04/2014 created by Joshua Tyler
 */
 void aryFromList(array destination, dataListElement *source)
@@ -307,14 +315,17 @@ void aryFromList(array destination, dataListElement *source)
 
 /*
 	Purpose:			Print the contents of an array
-	Parameters:			None
+	Parameters:			list - the array containing the data to print
+						stream - the output stream to print the data to
 	Return value:		None
-	Function calls:		None
-	Asserts:			None
+	Function calls:		assert(), fprintf(), fputc()
+	Asserts:			stream cannot be NULL
 	Revision history:	1.0 - 15/04/2014 created by Joshua Tyler
 */
 void aryPrint(array list, FILE *stream)
 {
+	assert(stream != NULL);
+
 	unsigned int i;
 	for(i=0;i<list.size;i++)
 		fprintf(stream,"%d, ", list.data[i]);
@@ -325,13 +336,19 @@ void aryPrint(array list, FILE *stream)
 
 /*
 	Purpose:			Perform binary search on a data array using values from a linked list
-	Parameters:			None
-	Return value:		None
-	Function calls:		None
-	Asserts:			None
+	Parameters:			dataArray - the array to search for the values in
+						firstElement - a pointer the the first element in the linked list of search items
+						messages - a pointer to the debugList to save the debugging messages in
+	Return value:		A runtimeStats structure containing statistics about the search
+	Function calls:		Direct function calls - assert(), clock()
+						Via dbgListMsg() macro - deblAddMsg() 
+	Asserts:			The data array to search for the value in cannot be NULL
+						The size of the data array must be greater than 0
+						The pointer to the debugList to save debugging messages in cannot be NULL
 	Revision history:	1.0 - 16/04/2014 created by Joshua Tyler
+						2.0 - 03/05/2014 JT Modified to use variable repitions
 */
-runtimeStats aryBinSearchList(array dataArray, dataListElement *currentSearchListElement, unsigned int noReps, debugList *messages)
+runtimeStats aryBinSearchList(array dataArray, dataListElement *firstElement, debugList *messages)
 {
 	assert(dataArray.data != NULL);
 	assert(dataArray.size > 0);
@@ -341,28 +358,31 @@ runtimeStats aryBinSearchList(array dataArray, dataListElement *currentSearchLis
 	time_t start, end;
 
 	unsigned int repCtr;
+
+	dataListElement *nextElement;
 	
-	start = clock();
-	while(currentSearchListElement != NULL)
+	start = end = clock();
+	for(repCtr = 1; end - start < CLOCKS_PER_SEC * MIN_TIME; repCtr++)
 	{
-		returnStats.attempted++;
-		for(repCtr = noReps; repCtr > 0; repCtr--)
+		nextElement =firstElement;
+		while(nextElement != NULL)
 		{
-			if( aryBinSearchNum(dataArray, currentSearchListElement->data) == SUCCESS)
+			if (repCtr == 1)
+				returnStats.attempted++;
+			if( aryBinSearchNum(dataArray, nextElement->data) == SUCCESS)
 			{
 				/* This is true if the element was found or stored successfully */
-				dbgListMsg(messages, currentSearchListElement->data, found, repCtr == 1);
+				dbgListMsg(messages, nextElement->data, found, repCtr == 1);
 				if(repCtr == 1)
 					returnStats.processed++;
 			} else {
-				dbgListMsg(messages, currentSearchListElement->data, notFound, repCtr == 1);
+				dbgListMsg(messages, nextElement->data, notFound, repCtr == 1);
 			}
+			nextElement = nextElement ->next;
 		}
-		currentSearchListElement = currentSearchListElement ->next;
+		end = clock();
 	}
-	end = clock();
-
-	returnStats.duration = ( (double)(end-start)/(double)CLOCKS_PER_SEC )/(double)noReps;
+	returnStats.duration = ( (double)(end-start)/(double)CLOCKS_PER_SEC )/(double)repCtr;
 
 	return returnStats;
 
@@ -370,10 +390,11 @@ runtimeStats aryBinSearchList(array dataArray, dataListElement *currentSearchLis
 
 /*
 	Purpose:			Perform binary search on an array with a specific value
-	Parameters:			None
-	Return value:		None
-	Function calls:		None
-	Asserts:			None
+	Parameters:			dataArray - the array to search for the value in
+	Return value:		searchData - the value to search for
+	Function calls:		assert()
+	Asserts:			The data array to search for the value in cannot be NULL
+						The size of the data array must be greater than 0
 	Revision history:	1.0 - 16/04/2014 created by Joshua Tyler
 */
 unsigned int aryBinSearchNum(array dataArray, int searchData)
@@ -774,8 +795,6 @@ void printAddToFile(char *fileName, unsigned int noStored, unsigned int noSearch
 */
 unsigned int setNoReps(unsigned int noForSize1, unsigned int dataSize)
 {
-//	dataSize = dataSize * dataSize; // Square datasize so that it goes down quadratically.
-
 	if(dataSize == 0)
 		return noForSize1;
 
@@ -783,6 +802,6 @@ unsigned int setNoReps(unsigned int noForSize1, unsigned int dataSize)
 	if(dataSize >= noForSize1)
 		return 1;
 
-	/* Otherwise, division will allow the number of repeats to decrease quadratically as dataSize increases */
+	/* Otherwise, division will allow the number of repeats to decrease linearly as dataSize increases */
 	return noForSize1 / dataSize;
 }
