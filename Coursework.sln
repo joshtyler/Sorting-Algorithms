@@ -1,15 +1,15 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 2012
+# Visual Studio 2013
+VisualStudioVersion = 12.0.30501.0
+MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Hashing", "Hashing\Hashing.vcxproj", "{265C6910-ADCE-47A3-9AE0-06AFD677798D}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Generate_numbers", "Generate numbers\Generate numbers.vcxproj", "{1FF9323C-D3A8-4A96-B917-9FB2935A7C2E}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Run multiple times", "Run multiple times\Run multiple times.vcxproj", "{60592EBD-2AD9-44FE-965E-0DE16C26D369}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "run_multiple_times", "Run multiple times\Run multiple times.vcxproj", "{60592EBD-2AD9-44FE-965E-0DE16C26D369}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Selection_sort", "Selection_sort\Selection_sort.vcxproj", "{976B91D8-B132-45BA-8040-6A866BFD2B83}"
-EndProject
-Project("{F088123C-0E9E-452A-89E6-6BA2F21D5CAC}") = "ModelingProject1", "ModelingProject1\ModelingProject1.modelproj", "{86329E43-6820-4B83-81D3-53D10850FDB0}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -61,21 +61,8 @@ Global
 		{976B91D8-B132-45BA-8040-6A866BFD2B83}.Release|Mixed Platforms.Build.0 = Release|Win32
 		{976B91D8-B132-45BA-8040-6A866BFD2B83}.Release|Win32.ActiveCfg = Release|Win32
 		{976B91D8-B132-45BA-8040-6A866BFD2B83}.Release|Win32.Build.0 = Release|Win32
-		{86329E43-6820-4B83-81D3-53D10850FDB0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{86329E43-6820-4B83-81D3-53D10850FDB0}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{86329E43-6820-4B83-81D3-53D10850FDB0}.Debug|Mixed Platforms.ActiveCfg = Debug|Any CPU
-		{86329E43-6820-4B83-81D3-53D10850FDB0}.Debug|Mixed Platforms.Build.0 = Debug|Any CPU
-		{86329E43-6820-4B83-81D3-53D10850FDB0}.Debug|Win32.ActiveCfg = Debug|Any CPU
-		{86329E43-6820-4B83-81D3-53D10850FDB0}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{86329E43-6820-4B83-81D3-53D10850FDB0}.Release|Any CPU.Build.0 = Release|Any CPU
-		{86329E43-6820-4B83-81D3-53D10850FDB0}.Release|Mixed Platforms.ActiveCfg = Release|Any CPU
-		{86329E43-6820-4B83-81D3-53D10850FDB0}.Release|Mixed Platforms.Build.0 = Release|Any CPU
-		{86329E43-6820-4B83-81D3-53D10850FDB0}.Release|Win32.ActiveCfg = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
-	EndGlobalSection
-	GlobalSection(Performance) = preSolution
-		HasPerformanceSessions = true
 	EndGlobalSection
 EndGlobal

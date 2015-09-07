@@ -1,8 +1,8 @@
 /*
    hash.cpp
-   Impementation of storage and retreival using a hash table
+   Implementation of storage and retrieval using a hash table
    Created as coursework for Computers and Programming II, April 2014
-   Created by Joshua Tyler (URN:6213642)
+   Created by Joshua Tyler
 */
 
 /* Symbolic constants prescribed by the specification */
@@ -385,7 +385,7 @@ runtimeStats htblProcList(hashTable tableHeader, dataListElement *currentdataLis
 						3.0 - 14/04/2014 JT modified to output debugging messages if debug is enabled
 						4.0 - 14/04/2014 JT modified to save debug messages to a linked list so they can be run later.
 						5.0 - 14/04/2014 JT modified to use linear probing (rather than quadratic) in accordance with the new specifications
-						6.0 - 14/04/2014 JT modified to allow multiple repitions
+						6.0 - 14/04/2014 JT modified to allow multiple repetitions
 */
 unsigned int htblProcNum(hashTable tableHeader, int numToProc, hashProcess operation, unsigned int lastRep, debugList *debugMessages)
 {

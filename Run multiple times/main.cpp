@@ -40,7 +40,7 @@ int main(int argc, char** argv)
 
     if(maxNo%interval != 0)
 	{
-		fputs("FAM, your max no. is not a multiple of your interval! SORT IT OUT.\n", stderr);
+		fputs("Max no is not a multiple of interval.\n", stderr);
         exit(EXIT_FAILURE);
 	}
 

@@ -2,7 +2,7 @@
    sorted.cpp
    Impementation of storage using selection sort into an array, and retrieval using binary search.
    Created as coursework for Computers and Programming II, April 2014
-   Created by Joshua Tyler (URN:6213642)
+   Created by Joshua Tyler
 */
 
 /* Symbolic constants prescribed by the specification */
